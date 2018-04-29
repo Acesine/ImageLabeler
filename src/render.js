@@ -1,8 +1,62 @@
 const { ipcRenderer, remote } = require('electron');
 
+var Point = class {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+};
+
+// Keep a record of current working image path
+var imgPath;
+var leftMousePressed = false;
+var labelPoints = [];
+var lastPoint;
+
+function reset() {
+    imgPath = undefined;
+    leftMousePressed = false;
+    labelPoints = [];
+    lastPoint = undefined;
+}
+
 // Draw
 var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
+
+function drawTo(p) {
+    ctx.beginPath();
+    ctx.strokeStyle="#FFFFFF";
+    ctx.moveTo(lastPoint.x, lastPoint.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.closePath();
+    ctx.stroke();
+}
+
+canvas.onmousedown = function(e) {
+    if (e.button == 0) {
+        // Left button
+        leftMousePressed = imgPath !== undefined;
+        lastPoint = new Point(e.offsetX, e.offsetY);
+    }
+}
+
+canvas.onmousemove = function(e) {
+    if (leftMousePressed) {
+        var p = new Point(e.offsetX, e.offsetY);
+        drawTo(p);
+        labelPoints.push(p);
+        lastPoint = p;
+    }
+}
+
+canvas.onmouseup = function(e) {
+    if (e.button == 0) {
+        // Left button
+        leftMousePressed = false;
+        console.log(labelPoints.length);
+    }
+}
 
 var img = new Image();
 img.onload = function() {
@@ -12,8 +66,11 @@ img.onload = function() {
     console.debug('Loaded file: ' + img.src)
 }
 
-function showImage(imgPath) {
+function openImage(filePath) {
+    // Reset global vars before loading a new image
+    reset();
     // This will trigger img.onload() method
+    imgPath = filePath;
     img.src = imgPath;
 }
 
@@ -26,7 +83,7 @@ document.addEventListener('drop', function (e) {
     for (let f of e.dataTransfer.files) {
         filePath = 'file://' + f.path;
     }
-    showImage(filePath);
+    openImage(filePath);
 });
 
 document.addEventListener('dragover', function (e) {
@@ -36,5 +93,5 @@ document.addEventListener('dragover', function (e) {
 
 // IPC ops
 ipcRenderer.on('refresh-image', (event, arg) => {
-    showImage(arg);
+    openImage(arg);
 });
