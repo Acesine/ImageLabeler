@@ -13,6 +13,7 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    icon: `file://${__dirname}/../resource/icon.png`
   });
 
   mainWindow.loadURL(`file://${__dirname}/index.html`);

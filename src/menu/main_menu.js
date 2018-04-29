@@ -121,10 +121,6 @@ const template = [
   {
     role: 'help',
     submenu: [
-      {
-        label: 'Learn More',
-        click () { require('electron').shell.openExternal('http://electron.atom.io') }
-      }
     ]
   }
 ];
@@ -134,12 +130,6 @@ if (process.platform === 'darwin') {
   template.unshift({
     label: name,
     submenu: [
-      {
-        role: 'about'
-      },
-      {
-        type: 'separator'
-      },
       {
         role: 'services',
         submenu: []
