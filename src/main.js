@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron';
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
@@ -24,7 +24,7 @@ const createWindow = () => {
     mainWindow = null;
   });
 
-  require('./menu/main_menu.js')
+  require('./menu/main_menu.js');
 };
 
 app.on('ready', createWindow);

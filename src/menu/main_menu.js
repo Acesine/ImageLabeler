@@ -1,13 +1,23 @@
-const { app, Menu } = require('electron')
+const { app, Menu, dialog } = require('electron')
+const fs = require('fs') 
 
 function onOpen(menuItem, browserWindow, event) {
-  console.log(menuItem)
-  console.log(event)
+  dialog.showOpenDialog(function (fileNames) {        
+       // fileNames is an array that contains all the selected 
+       if(fileNames === undefined) { 
+          console.debug("No file selected"); 
+       } else { 
+          browserWindow.webContents.send('refresh-image', fileNames[0]);
+       } 
+    });
+}
+
+function onLabel(menuItem, browserWindow, event) {
+  console.log('Not implemented yet');
 }
 
 function onSave(menuItem, browserWindow, event) {
-  console.log(menuItem)
-  console.log(event)
+  console.log('Not implemented yet');
 }
 
 const template = [
@@ -17,6 +27,10 @@ const template = [
       {
         label: 'Open',
         click: onOpen
+      },
+      {
+        label: 'Start labelling',
+        click: onLabel
       },
       {
         label: 'Save',
@@ -113,7 +127,7 @@ const template = [
       }
     ]
   }
-]
+];
 
 if (process.platform === 'darwin') {
   const name = app.getName()
@@ -180,7 +194,7 @@ if (process.platform === 'darwin') {
       role: 'front'
     }
   ]
-}
+};
 
-const menu = Menu.buildFromTemplate(template)
-Menu.setApplicationMenu(menu)
+const menu = Menu.buildFromTemplate(template);
+Menu.setApplicationMenu(menu);
