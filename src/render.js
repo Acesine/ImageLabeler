@@ -1,14 +1,20 @@
 const { ipcRenderer, remote } = require('electron');
 
+// Draw
+var canvas = document.getElementById("imgCanvas");
+var ctx = canvas.getContext("2d");
+
+var img = new Image();
+img.onload = function() {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    console.debug('Loaded file: ' + img.src)
+}
+
 function showImage(imgPath) {
-    var img = document.createElement("img");
+    // This will trigger img.onload() method
     img.src = imgPath;
-    var imgDiv = document.getElementById('imgDiv');
-    if (imgDiv.childElementCount > 0) {
-        imgDiv.removeChild(imgDiv.firstChild);
-    }
-    imgDiv.appendChild(img);
-    console.debug('Loaded file: ' + imgPath)
 }
 
 document.addEventListener('drop', function (e) {
