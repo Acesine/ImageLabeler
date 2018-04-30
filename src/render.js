@@ -110,6 +110,7 @@ function loadLabel(filePath) {
         });
         drawPoints();
     });
+    console.log('Label file loaded.')
 }
 
 // TODO: Apply compatible format with 'LabelMe'
@@ -126,11 +127,8 @@ function constructLableFileContent() {
     return JSON.stringify(ret, null, 4);
 }
 
-function save() {
+function save(labelFileFullPath) {
     if (imgPath === undefined) return;
-    var fileName = path.parse(imgPath).base;
-    var labelFileName = fileName + '_labels.json';
-    var labelFileFullPath = `${__dirname}/${labelFileName}`;
     var content = constructLableFileContent();
     fs.writeFile(labelFileFullPath, content, 'utf8', err => {
         if (err) {
@@ -166,7 +164,7 @@ ipcRenderer.on('refresh-image', (event, arg) => {
 });
 
 ipcRenderer.on('save-image', (event, arg) => {
-    save();
+    save(arg);
 });
 
 ipcRenderer.on('load-label', (event, arg) => {

@@ -4,10 +4,21 @@ const fs = require('fs')
 function onOpen(menuItem, browserWindow, event) {
   dialog.showOpenDialog(fileNames => {        
     // fileNames is an array that contains all the selected 
-    if(fileNames === undefined) { 
-      console.debug("No file selected"); 
+    if(fileNames === undefined || fileNames.length == 0) { 
+      console.info("No file selected");
     } else { 
       browserWindow.webContents.send('refresh-image', fileNames[0]);
+    } 
+  });
+}
+
+function onNewLabel(menuItem, browserWindow, event) {
+  dialog.showOpenDialog(fileNames => {        
+    // fileNames is an array that contains all the selected 
+    if(fileNames === undefined || fileNames.length == 0) { 
+       console.debug("No file selected"); 
+    } else { 
+       browserWindow.webContents.send('load-label', fileNames[0]);
     } 
   });
 }
@@ -20,11 +31,17 @@ function onLoadLabel(menuItem, browserWindow, event) {
     } else { 
        browserWindow.webContents.send('load-label', fileNames[0]);
     } 
- });
+  });
 }
 
 function onSave(menuItem, browserWindow, event) {
-  browserWindow.webContents.send('save-image');
+  dialog.showSaveDialog(filename => {        
+    if(filename === undefined) { 
+       console.debug("No file selected"); 
+    } else { 
+       browserWindow.webContents.send('save-image', filename);
+    } 
+  });
 }
 
 const template = [
@@ -36,11 +53,15 @@ const template = [
         click: onOpen
       },
       {
+        label: 'New label',
+        click: onNewLabel
+      },
+      {
         label: 'Load label',
         click: onLoadLabel
       },
       {
-        label: 'Save',
+        label: 'Save label file',
         click: onSave
       }
     ]
