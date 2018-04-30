@@ -127,13 +127,13 @@ function openImage(filePath) {
 }
 
 function newLabel(labelName) {
+    var lineColor = '#'+Math.random().toString(16).substr(-6);
     if (labelName in labels) {
-        dialog.showErrorBox('Failure', `Label "${labelName}" already exists!`);
-        return;
+        lineColor = labels[labelName].line_color;
     }
     labels[labelName] = {
         label: labelName,
-        line_color: '#'+Math.random().toString(16).substr(-6),
+        line_color: lineColor,
         points: []
     }
     currentLabel = labelName;

@@ -6,3 +6,5 @@
 - ~~As a user, I can load an label file into current image.~~
 - ~~As a user, I should first define a label, then draw it.~~
 - ~~App should guide user to make the contour closed.~~
+- App should lint the contour
+- Color choosen is better to be a bright color than a dark one
