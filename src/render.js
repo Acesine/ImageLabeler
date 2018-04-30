@@ -13,14 +13,34 @@ var Point = class {
 // Keep a record of current working image path
 var imgPath;
 var leftMousePressed = false;
-var labelPoints = [];
-var lastPoint;
+var currentLabel;
+var labels = {};
 
 function reset() {
     imgPath = undefined;
     leftMousePressed = false;
-    labelPoints = [];
-    lastPoint = undefined;
+    currentLabel = undefined;
+    labels = {};
+}
+
+function getLastPoint() {
+    return labels[currentLabel].lastPoint;
+}
+
+function setLastPoint(p) {
+    labels[currentLabel].lastPoint = p;
+}
+
+function getLabelPoints() {
+    return labels[currentLabel].points;
+}
+
+function pushLabelPoint(p) {
+    labels[currentLabel].points.push(p);
+}
+
+function getCurrentLineColor() {
+    return labels[currentLabel].line_color;
 }
 
 // Draw
@@ -28,35 +48,39 @@ var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
 
 function drawTo(p) {
-    if (lastPoint === undefined) {
-        lastPoint = p;
-        labelPoints.push(p);
+    if (getLastPoint() === undefined) {
+        setLastPoint(p);
+        pushLabelPoint(p);
     }
     ctx.beginPath();
-    ctx.strokeStyle="#FFFFFF";
-    ctx.moveTo(lastPoint.x, lastPoint.y);
+    ctx.strokeStyle = getCurrentLineColor();
+    ctx.moveTo(getLastPoint().x, getLastPoint().y);
     ctx.lineTo(p.x, p.y);
     ctx.closePath();
     ctx.stroke();
     // Simply dedup
-    if (lastPoint.x != p.x || 
-        lastPoint.y != p.y) {
-        labelPoints.push(p);
+    if (getLastPoint().x != p.x || 
+        getLastPoint().y != p.y) {
+        pushLabelPoint(p);
     }
-    lastPoint = p;
+    setLastPoint(p);
 }
 
 function drawPoints() {
-    if (labelPoints.length == 0) return;
-    lastPoint = labelPoints[0];
-    labelPoints.forEach(p => {
+    if (getLabelPoints().length == 0) return;
+    setLastPoint(getLabelPoints()[0]);
+    getLabelPoints().forEach(p => {
         drawTo(p);
-        lastPoint = p;
+        setLastPoint(p);
     });
 }
 
+function isLabelling() {
+    return imgPath !== undefined && currentLabel !== undefined;
+}
+
 canvas.onmousedown = function(e) {
-    if (imgPath === undefined) return;
+    if (!isLabelling()) return;
     if (e.button == 0) {
         // Left button
         leftMousePressed = true;
@@ -66,7 +90,7 @@ canvas.onmousedown = function(e) {
 }
 
 canvas.onmousemove = function(e) {
-    if (imgPath === undefined) return;
+    if (!isLabelling()) return;
     if (leftMousePressed) {
         var p = new Point(e.offsetX, e.offsetY);
         drawTo(p);
@@ -74,11 +98,10 @@ canvas.onmousemove = function(e) {
 }
 
 canvas.onmouseup = function(e) {
-    if (imgPath === undefined) return;
+    if (!isLabelling()) return;
     if (e.button == 0) {
         // Left button
         leftMousePressed = false;
-        console.log(labelPoints.length);
     }
 }
 
@@ -87,7 +110,6 @@ img.onload = function() {
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
-    console.debug('Loaded file: ' + img.src)
 }
 
 function openImage(filePath) {
@@ -98,32 +120,59 @@ function openImage(filePath) {
     img.src = imgPath;
 }
 
+function newLabel(labelName) {
+    if (labelName in labels) {
+        dialog.showErrorBox('Failure', `Label "${labelName}" already exists!`);
+        return;
+    }
+    labels[labelName] = {
+        label: labelName,
+        line_color: '#'+Math.random().toString(16).substr(-6),
+        points: []
+    }
+    currentLabel = labelName;
+}
+
 function loadLabel(filePath) {
     fs.readFile(filePath, (err, data) => {
         if (err) {
             dialog.showErrorBox('Failure', 'Failed to load label file!');
         }
         var loaded = JSON.parse(data);
-        labelPoints = [];
-        loaded.points.forEach(element => {
-            labelPoints.push(new Point(element[0], element[1]));
-        });
-        drawPoints();
+        labels = {}
+        loaded.shapes.forEach(element => {
+            var label = element.label;
+            labels[label] = {
+                label: label,
+                line_color: element.line_color,
+                points: []
+            };
+            element.points.forEach(p => {
+                labels[label].points.push(new Point(p[0], p[1]));
+            });
+            currentLabel = label;
+            drawPoints();
+        });     
     });
     console.log('Label file loaded.')
 }
 
-// TODO: Apply compatible format with 'LabelMe'
 function constructLableFileContent() {
     var ret = {
-        points: [
+        shapes: [
         ]
     };
-
-    labelPoints.forEach(element => {
-        ret.points.push([element.x, element.y]);
-    });
-    
+    for (var label in labels) {
+        var labelData = {
+            label: labels[label].label,
+            line_color: labels[label].line_color,
+            points: []
+        };
+        labels[label].points.forEach(element => {
+            labelData.points.push([element.x, element.y]);
+        });
+        ret.shapes.push(labelData);
+    }
     return JSON.stringify(ret, null, 4);
 }
 
@@ -170,3 +219,7 @@ ipcRenderer.on('save-image', (event, arg) => {
 ipcRenderer.on('load-label', (event, arg) => {
     loadLabel(arg);
 });
+
+ipcRenderer.on('new-label', (event, arg) => {
+    newLabel(arg);
+})

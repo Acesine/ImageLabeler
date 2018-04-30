@@ -1,4 +1,5 @@
 const { app, Menu, dialog } = require('electron')
+const prompt = require('electron-prompt');
 const fs = require('fs') 
 
 function onOpen(menuItem, browserWindow, event) {
@@ -12,15 +13,17 @@ function onOpen(menuItem, browserWindow, event) {
   });
 }
 
-function onNewLabel(menuItem, browserWindow, event) {
-  dialog.showOpenDialog(fileNames => {        
-    // fileNames is an array that contains all the selected 
-    if(fileNames === undefined || fileNames.length == 0) { 
-       console.debug("No file selected"); 
-    } else { 
-       browserWindow.webContents.send('load-label', fileNames[0]);
-    } 
-  });
+function onNewLabel(menuItem, browserWindow, event) { 
+  prompt({
+      title: 'Input',
+      label: 'Label name:',
+      type: 'input'
+  })
+  .then(r => {
+    if (r == null || r.length == 0) return;
+    browserWindow.webContents.send('new-label', r);
+  })
+  .catch(console.error);
 }
 
 function onLoadLabel(menuItem, browserWindow, event) {
