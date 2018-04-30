@@ -4,4 +4,5 @@
 - ~~App could keep locaction of each pixel drawn.~~
 - ~~As a user, I can save edited image as well as label points.~~
 - ~~As a user, I can load an label file into current image.~~
-- As a user, I should first define a label, then draw it.
+- ~~As a user, I should first define a label, then draw it.~~
+- ~~App should guide user to make the contour closed.~~

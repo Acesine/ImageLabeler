@@ -24,11 +24,14 @@ function reset() {
 }
 
 function getLastPoint() {
-    return labels[currentLabel].lastPoint;
+    if (labels[currentLabel].points.length == 0) return undefined;
+    console.log(labels);
+    return labels[currentLabel].points[labels[currentLabel].points.length - 1];
 }
 
-function setLastPoint(p) {
-    labels[currentLabel].lastPoint = p;
+function getFirstPoint() {
+    if (labels[currentLabel].points.length == 0) return undefined;
+    return labels[currentLabel].points[0];
 }
 
 function getLabelPoints() {
@@ -46,11 +49,23 @@ function getCurrentLineColor() {
 // Draw
 var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
+var helperRadius = 10;
+
+function markFirstPoint(p) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.arc(p.x, p.y, helperRadius, 0, 2*Math.PI);
+    ctx.stroke();
+}
+
+function withInCircle(c, p) {
+    return Math.sqrt((c.x-p.x)*(c.x-p.x) + (c.y-p.y)*(c.y-p.y)) < helperRadius;
+}
 
 function drawTo(p) {
     if (getLastPoint() === undefined) {
-        setLastPoint(p);
         pushLabelPoint(p);
+        markFirstPoint(p);
     }
     ctx.beginPath();
     ctx.strokeStyle = getCurrentLineColor();
@@ -63,16 +78,6 @@ function drawTo(p) {
         getLastPoint().y != p.y) {
         pushLabelPoint(p);
     }
-    setLastPoint(p);
-}
-
-function drawPoints() {
-    if (getLabelPoints().length == 0) return;
-    setLastPoint(getLabelPoints()[0]);
-    getLabelPoints().forEach(p => {
-        drawTo(p);
-        setLastPoint(p);
-    });
 }
 
 function isLabelling() {
@@ -85,6 +90,9 @@ canvas.onmousedown = function(e) {
         // Left button
         leftMousePressed = true;
         var p = new Point(e.offsetX, e.offsetY);
+        if (getLastPoint() !== undefined && withInCircle(getFirstPoint(), p)) {
+            p = getFirstPoint();
+        }
         drawTo(p);
     }
 }
@@ -92,8 +100,7 @@ canvas.onmousedown = function(e) {
 canvas.onmousemove = function(e) {
     if (!isLabelling()) return;
     if (leftMousePressed) {
-        var p = new Point(e.offsetX, e.offsetY);
-        drawTo(p);
+        drawTo(new Point(e.offsetX, e.offsetY));
     }
 }
 
@@ -147,11 +154,10 @@ function loadLabel(filePath) {
                 line_color: element.line_color,
                 points: []
             };
-            element.points.forEach(p => {
-                labels[label].points.push(new Point(p[0], p[1]));
-            });
             currentLabel = label;
-            drawPoints();
+            element.points.forEach(p => {
+                drawTo(new Point(p[0], p[1]));
+            });
         });     
     });
     console.log('Label file loaded.')
