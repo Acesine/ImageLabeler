@@ -29,7 +29,8 @@
         ]
       },
       "electronPackagerConfig": {
-        "packageManager": "yarn"
+        "packageManager": "yarn",
+        "icon": "resource/icon.icns"
       },
       "electronWinstallerConfig": {
         "name": "imageseglabeler"
