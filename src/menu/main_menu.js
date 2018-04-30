@@ -2,18 +2,25 @@ const { app, Menu, dialog } = require('electron')
 const fs = require('fs') 
 
 function onOpen(menuItem, browserWindow, event) {
-  dialog.showOpenDialog(function (fileNames) {        
-       // fileNames is an array that contains all the selected 
-       if(fileNames === undefined) { 
-          console.debug("No file selected"); 
-       } else { 
-          browserWindow.webContents.send('refresh-image', fileNames[0]);
-       } 
-    });
+  dialog.showOpenDialog(fileNames => {        
+    // fileNames is an array that contains all the selected 
+    if(fileNames === undefined) { 
+      console.debug("No file selected"); 
+    } else { 
+      browserWindow.webContents.send('refresh-image', fileNames[0]);
+    } 
+  });
 }
 
-function onLabel(menuItem, browserWindow, event) {
-  console.log('Not implemented yet');
+function onLoadLabel(menuItem, browserWindow, event) {
+  dialog.showOpenDialog(fileNames => {        
+    // fileNames is an array that contains all the selected 
+    if(fileNames === undefined) { 
+       console.debug("No file selected"); 
+    } else { 
+       browserWindow.webContents.send('load-label', fileNames[0]);
+    } 
+ });
 }
 
 function onSave(menuItem, browserWindow, event) {
@@ -29,8 +36,8 @@ const template = [
         click: onOpen
       },
       {
-        label: 'Start labelling',
-        click: onLabel
+        label: 'Load label',
+        click: onLoadLabel
       },
       {
         label: 'Save',

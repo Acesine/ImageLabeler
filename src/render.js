@@ -28,12 +28,31 @@ var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
 
 function drawTo(p) {
+    if (lastPoint === undefined) {
+        lastPoint = p;
+        labelPoints.push(p);
+    }
     ctx.beginPath();
     ctx.strokeStyle="#FFFFFF";
     ctx.moveTo(lastPoint.x, lastPoint.y);
     ctx.lineTo(p.x, p.y);
     ctx.closePath();
     ctx.stroke();
+    // Simply dedup
+    if (lastPoint.x != p.x || 
+        lastPoint.y != p.y) {
+        labelPoints.push(p);
+    }
+    lastPoint = p;
+}
+
+function drawPoints() {
+    if (labelPoints.length == 0) return;
+    lastPoint = labelPoints[0];
+    labelPoints.forEach(p => {
+        drawTo(p);
+        lastPoint = p;
+    });
 }
 
 canvas.onmousedown = function(e) {
@@ -41,8 +60,8 @@ canvas.onmousedown = function(e) {
     if (e.button == 0) {
         // Left button
         leftMousePressed = true;
-        lastPoint = new Point(e.offsetX, e.offsetY);
-        labelPoints.push(lastPoint);
+        var p = new Point(e.offsetX, e.offsetY);
+        drawTo(p);
     }
 }
 
@@ -51,12 +70,6 @@ canvas.onmousemove = function(e) {
     if (leftMousePressed) {
         var p = new Point(e.offsetX, e.offsetY);
         drawTo(p);
-        // Simply dedup
-        if (p.x != labelPoints[labelPoints.length-1].x || 
-            p.y != labelPoints[labelPoints.length-1].y) {
-            labelPoints.push(p);
-        }
-        lastPoint = p;
     }
 }
 
@@ -85,6 +98,20 @@ function openImage(filePath) {
     img.src = imgPath;
 }
 
+function loadLabel(filePath) {
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            dialog.showErrorBox('Failure', 'Failed to load label file!');
+        }
+        var loaded = JSON.parse(data);
+        labelPoints = [];
+        loaded.points.forEach(element => {
+            labelPoints.push(new Point(element[0], element[1]));
+        });
+        drawPoints();
+    });
+}
+
 // TODO: Apply compatible format with 'LabelMe'
 function constructLableFileContent() {
     var ret = {
@@ -105,13 +132,13 @@ function save() {
     var labelFileName = fileName + '_labels.json';
     var labelFileFullPath = `${__dirname}/${labelFileName}`;
     var content = constructLableFileContent();
-    fs.writeFile(labelFileFullPath, content, 'utf8', function (err) {
+    fs.writeFile(labelFileFullPath, content, 'utf8', err => {
         if (err) {
-            dialog.showErrorBox('Failed to save', 'Filed to save file');
+            dialog.showErrorBox('Failure', 'Filed to save file!');
         }
     
         dialog.showMessageBox({
-            message: 'Label file saved at ' + labelFileFullPath
+            message: 'Label file saved at: \n' + labelFileFullPath
         });
     }); 
 }
@@ -140,4 +167,8 @@ ipcRenderer.on('refresh-image', (event, arg) => {
 
 ipcRenderer.on('save-image', (event, arg) => {
     save();
+});
+
+ipcRenderer.on('load-label', (event, arg) => {
+    loadLabel(arg);
 });
