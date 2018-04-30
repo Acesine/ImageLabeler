@@ -17,7 +17,7 @@ function onLabel(menuItem, browserWindow, event) {
 }
 
 function onSave(menuItem, browserWindow, event) {
-  console.log('Not implemented yet');
+  browserWindow.webContents.send('save-image');
 }
 
 const template = [
