@@ -25,7 +25,6 @@ function reset() {
 
 function getLastPoint() {
     if (labels[currentLabel].points.length == 0) return undefined;
-    console.log(labels);
     return labels[currentLabel].points[labels[currentLabel].points.length - 1];
 }
 
@@ -223,6 +222,11 @@ ipcRenderer.on('save-image', (event, arg) => {
 });
 
 ipcRenderer.on('load-label', (event, arg) => {
+    if (imgPath === undefined) {
+        dialog.showErrorBox('Failure', 'Open an image first!');
+        return;
+    }
+    openImage(imgPath);
     loadLabel(arg);
 });
 
