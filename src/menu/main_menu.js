@@ -1,52 +1,20 @@
-const { app, Menu, dialog } = require('electron')
-const prompt = require('electron-prompt');
+const { app, Menu } = require('electron')
 const fs = require('fs') 
 
 function onOpen(menuItem, browserWindow, event) {
-  dialog.showOpenDialog(fileNames => {        
-    // fileNames is an array that contains all the selected 
-    if(fileNames === undefined || fileNames.length == 0) { 
-      //
-    } else { 
-      browserWindow.webContents.send('refresh-image', fileNames[0]);
-    } 
-  });
+  browserWindow.webContents.send('open-image');
 }
 
 function onNewLabel(menuItem, browserWindow, event) { 
-  prompt({
-      title: 'Input',
-      label: 'Label name:',
-      type: 'input'
-  })
-  .then(r => {
-    if (r == null || r.length == 0) return;
-    browserWindow.webContents.send('new-label', r);
-  })
-  .catch(e => {
-    //
-  });
+  browserWindow.webContents.send('new-label');
 }
 
 function onLoadLabel(menuItem, browserWindow, event) {
-  dialog.showOpenDialog(fileNames => {        
-    // fileNames is an array that contains all the selected 
-    if(fileNames === undefined) { 
-       // 
-    } else { 
-       browserWindow.webContents.send('load-label', fileNames[0]);
-    } 
-  });
+  browserWindow.webContents.send('load-label');
 }
 
 function onSave(menuItem, browserWindow, event) {
-  dialog.showSaveDialog(filename => {        
-    if(filename === undefined) { 
-       // 
-    } else { 
-       browserWindow.webContents.send('save-image', filename);
-    } 
-  });
+  browserWindow.webContents.send('save-image');
 }
 
 const template = [

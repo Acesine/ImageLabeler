@@ -1,5 +1,6 @@
 const { ipcRenderer } = require('electron');
 const { dialog } = require('electron').remote;
+const prompt = require('electron-prompt');
 const fs = require('fs');
 
 class Point {
@@ -15,7 +16,7 @@ var leftMousePressed = false;
 var currentLabel;
 var labels = {};
 
-function reset() {
+function resetAll() {
   imgPath = undefined;
   leftMousePressed = false;
   currentLabel = undefined;
@@ -82,15 +83,22 @@ function isLabelling() {
   return imgPath !== undefined && currentLabel !== undefined;
 }
 
+function completeLabeling() {
+  currentLabel = undefined;
+}
+
 canvas.onmousedown = function(e) {
   if (!isLabelling()) return;
   if (e.button == 0) {
     // Left button
-    leftMousePressed = true;
     var p = new Point(e.offsetX, e.offsetY);
     if (getLastPoint() !== undefined && withInCircle(getFirstPoint(), p)) {
-      p = getFirstPoint();
+      drawTo(getFirstPoint());
+      completeLabeling();
+      leftMousePressed = false;
+      return;
     }
+    leftMousePressed = true;
     drawTo(p);
   }
 }
@@ -119,7 +127,7 @@ img.onload = function() {
 
 function openImage(filePath) {
   // Reset global vars before loading a new image
-  reset();
+  resetAll();
   // This will trigger img.onload() method
   imgPath = filePath;
   img.src = imgPath;
@@ -211,12 +219,25 @@ document.addEventListener('dragover', e => {
 });
 
 // IPC ops
-ipcRenderer.on('refresh-image', (event, arg) => {
-  openImage(arg);
+ipcRenderer.on('open-image', (event, arg) => {
+  dialog.showOpenDialog(fileNames => {        
+    // fileNames is an array that contains all the selected 
+    if(fileNames === undefined || fileNames.length == 0) { 
+      return;
+    } else { 
+      openImage(fileNames[0]);
+    } 
+  });
 });
 
 ipcRenderer.on('save-image', (event, arg) => {
-  save(arg);
+  dialog.showSaveDialog(filename => {        
+    if(filename === undefined) { 
+      // 
+    } else { 
+      save(filename);
+    } 
+  });
 });
 
 ipcRenderer.on('load-label', (event, arg) => {
@@ -224,10 +245,37 @@ ipcRenderer.on('load-label', (event, arg) => {
     dialog.showErrorBox('Failure', 'Open an image first!');
     return;
   }
-  openImage(imgPath);
-  loadLabel(arg);
+  dialog.showOpenDialog(fileNames => {        
+    // fileNames is an array that contains all the selected 
+    if(fileNames === undefined || fileNames.length == 0) {
+      return;
+    } else {
+      // refresh image
+      openImage(imgPath);
+      loadLabel(fileNames[0]);
+    } 
+  });
 });
 
 ipcRenderer.on('new-label', (event, arg) => {
-  newLabel(arg);
+  if (imgPath === undefined) {
+    dialog.showErrorBox('Failure', 'Open an image first!');
+    return;
+  }
+  if (isLabelling()) {
+    dialog.showErrorBox('Failure', 'Complete current label before starting a new one!');
+    return;
+  }
+  prompt({
+    title: 'Input',
+    label: 'Label name:',
+    type: 'input'
+  })
+  .then(r => {
+    if (r == null || r.length == 0) return;
+    newLabel(r);
+  })
+  .catch(e => {
+    //
+  });
 });
