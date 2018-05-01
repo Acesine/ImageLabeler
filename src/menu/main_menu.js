@@ -6,7 +6,7 @@ function onOpen(menuItem, browserWindow, event) {
   dialog.showOpenDialog(fileNames => {        
     // fileNames is an array that contains all the selected 
     if(fileNames === undefined || fileNames.length == 0) { 
-      console.info("No file selected");
+      //
     } else { 
       browserWindow.webContents.send('refresh-image', fileNames[0]);
     } 
@@ -23,14 +23,16 @@ function onNewLabel(menuItem, browserWindow, event) {
     if (r == null || r.length == 0) return;
     browserWindow.webContents.send('new-label', r);
   })
-  .catch(console.error);
+  .catch(e => {
+    //
+  });
 }
 
 function onLoadLabel(menuItem, browserWindow, event) {
   dialog.showOpenDialog(fileNames => {        
     // fileNames is an array that contains all the selected 
     if(fileNames === undefined) { 
-       console.debug("No file selected"); 
+       // 
     } else { 
        browserWindow.webContents.send('load-label', fileNames[0]);
     } 
@@ -40,7 +42,7 @@ function onLoadLabel(menuItem, browserWindow, event) {
 function onSave(menuItem, browserWindow, event) {
   dialog.showSaveDialog(filename => {        
     if(filename === undefined) { 
-       console.debug("No file selected"); 
+       // 
     } else { 
        browserWindow.webContents.send('save-image', filename);
     } 

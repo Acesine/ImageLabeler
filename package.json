@@ -11,8 +11,8 @@
     "package-win-ia32": "electron-packager . --overwrite --asar=true --platform=win32 --arch=ia32 --icon=resource/icon.ico --prune=true --out=release-builds",
     "package-win-x64": "electron-packager . --overwrite --asar=true --platform=win32 --arch=x64 --icon=resource/icon.ico --prune=true --out=release-builds",
     "release-mac": "electron-installer-dmg ImageLabeler-darwin-x64 ImageLabeler",
-    "release-win-ia32": "",
-    "release-win-x64": "node installers/windows/createinstaller.js",
+    "release-win-ia32": "node installers/windows/createinstaller-ia32.js",
+    "release-win-x64": "node installers/windows/createinstaller-x64.js",
     "lint": "eslint src --color"
   },
   "keywords": [],
