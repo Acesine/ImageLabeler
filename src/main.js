@@ -12,14 +12,13 @@ let mainWindow;
 const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 800,
-    height: 600,
-    icon: `file://${__dirname}/../resource/icon.icns`,
+    height: 600
   });
 
   mainWindow.loadURL(`file://${__dirname}/index.html`);
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;

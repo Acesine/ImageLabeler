@@ -55,6 +55,9 @@ function markFirstPoint(p) {
   ctx.strokeStyle = '#FFFFFF';
   ctx.arc(p.x, p.y, helperRadius, 0, 2*Math.PI);
   ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = "15px Verdana";
+  ctx.fillText(currentLabel, p.x - 10, p.y - 10);
 }
 
 function withInCircle(c, p) {
@@ -120,9 +123,9 @@ canvas.onmouseup = function(e) {
 
 var img = new Image();
 img.onload = function() {
-  canvas.width = img.width;
-  canvas.height = img.height;
-  ctx.drawImage(img, 0, 0);
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
 }
 
 function openImage(filePath) {
@@ -151,7 +154,12 @@ function loadLabel(filePath) {
     if (err) {
       dialog.showErrorBox('Failure', 'Failed to load label file!');
     }
-    var loaded = JSON.parse(data);
+    try {
+      var loaded = JSON.parse(data);
+    } catch(e) {
+      dialog.showErrorBox('Failure', 'Failed to load label file!');
+      return;
+    }
     labels = {}
     loaded.shapes.forEach(element => {
       var label = element.label;
