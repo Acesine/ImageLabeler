@@ -47,6 +47,14 @@ function getCurrentLineColor() {
   return labels[currentLabel].line_color;
 }
 
+function pushMaskValue(x) {
+  labels[currentLabel].mask.push(x);
+}
+
+function getMaskValue(pos) {
+  return labels[currentLabel].mask[pos];
+}
+
 // Draw
 var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
@@ -89,9 +97,8 @@ function isLabelling() {
 }
 
 function completeLabeling() {
-  var mask = constructMask();
-  var imageWithMask = combineImageAndMask(mask);
-  ctx.putImageData(imageWithMask, 0, 0);
+  constructMask();
+  blendImageAndMask();
   currentLabel = undefined;
 }
 
@@ -154,7 +161,8 @@ function newLabel(labelName) {
   labels[labelName] = {
     label: labelName,
     line_color: lineColor,
-    points: []
+    points: [],
+    mask: []
   }
   currentLabel = labelName;
 }
@@ -176,14 +184,51 @@ function loadLabel(filePath) {
       labels[label] = {
         label: label,
         line_color: element.line_color,
-        points: []
+        points: [],
+        mask: []
       };
       currentLabel = label;
       element.points.forEach(p => {
         drawTo(new Point(p[0], p[1]));
       });
+      if ('mask' in element) {
+        labels[label].mask = decompressMask(element.mask);
+        blendImageAndMask();
+      }
     });
+    currentLabel = undefined;
   });
+}
+
+// compress [1,1,1,1,0,0,0,0,1,1,1] -> [[1,4],[0,4],[1,3]]
+// TODO: use a better compression method
+function compressMask(mask) {
+  if (mask.length == 0) return mask;
+  var ret = [];
+  var curr = mask[0];
+  var cnt = 1;
+  for (var i=1; i<mask.length; i++) {
+    if (mask[i] != curr) {
+      ret.push([curr, cnt]);
+      curr = mask[i];
+      cnt = 1;
+      continue;
+    }
+    cnt ++;
+  }
+  ret.push([curr, cnt]);
+  return ret;
+}
+
+function decompressMask(mask) {
+  if (mask.length == 0) return mask;
+  var ret = [];
+  mask.forEach(element => {
+    for (var i=0; i<element[1]; i++) {
+      ret.push(element[0]);
+    }
+  });
+  return ret;
 }
 
 function constructLableFileContent() {
@@ -195,7 +240,8 @@ function constructLableFileContent() {
     var labelData = {
       label: labels[label].label,
       line_color: labels[label].line_color,
-      points: []
+      points: [],
+      mask: compressMask(labels[label].mask)
     };
     labels[label].points.forEach(element => {
       labelData.points.push([element.x, element.y]);
@@ -234,20 +280,20 @@ function isInPolygon(px, py) {
 }
 
 function constructMask() {
-  var mask = ctx.createImageData(img.width, img.height);
   var x, y;
   for (y=0; y<img.height; y++) {
     for (x=0; x<img.width; x++) {
       if (isInPolygon(x, y)) {
-        mask.data[y*4*mask.width + x*4] = 255;
+        pushMaskValue(1);
+      } else {
+        pushMaskValue(0);
       }
     }
   }
-  return mask;
 }
 
-function combineImageAndMask(mask) {
-  var output = ctx.getImageData(0, 0, img.width, img.height);
+function blendImageAndMask() {
+  var imageWithMask = ctx.getImageData(0, 0, img.width, img.height);
   var currentLineColor = getCurrentLineColor();
   var red = parseInt(currentLineColor.substring(1, 3), 16);
   var green = parseInt(currentLineColor.substring(3, 5), 16);
@@ -257,14 +303,14 @@ function combineImageAndMask(mask) {
   for (y=0; y<img.height; y++) {
     for (x=0; x<img.width; x++) {
       var pos = y*4*img.width + x*4;
-      if (mask.data[pos] != 0) {
-        output.data[pos] = Math.floor((1 - alpha) * output.data[pos] + alpha * red);
-        output.data[pos + 1] = Math.floor((1 - alpha) * output.data[pos + 1] + alpha * green);
-        output.data[pos + 2] = Math.floor((1 - alpha) * output.data[pos + 2] + alpha * blue);
+      if (getMaskValue(y*img.width+x) > 0) {
+        imageWithMask.data[pos] = Math.floor((1 - alpha) * imageWithMask.data[pos] + alpha * red);
+        imageWithMask.data[pos + 1] = Math.floor((1 - alpha) * imageWithMask.data[pos + 1] + alpha * green);
+        imageWithMask.data[pos + 2] = Math.floor((1 - alpha) * imageWithMask.data[pos + 2] + alpha * blue);
       }
     }
   }
-  return output;
+  ctx.putImageData(imageWithMask, 0, 0);
 }
 
 document.addEventListener('drop', function (e) {
@@ -296,7 +342,7 @@ ipcRenderer.on('open-image', (event, arg) => {
   });
 });
 
-ipcRenderer.on('save-image', (event, arg) => {
+ipcRenderer.on('save', (event, arg) => {
   dialog.showSaveDialog(filename => {        
     if(filename === undefined) { 
       // 

@@ -14,7 +14,7 @@ function onLoadLabel(menuItem, browserWindow, event) {
 }
 
 function onSave(menuItem, browserWindow, event) {
-  browserWindow.webContents.send('save-image');
+  browserWindow.webContents.send('save');
 }
 
 const template = [
@@ -34,7 +34,7 @@ const template = [
         click: onLoadLabel
       },
       {
-        label: 'Save label file',
+        label: 'Save label',
         click: onSave
       }
     ]
