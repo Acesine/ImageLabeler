@@ -12,12 +12,14 @@ class Point {
 
 // Keep a record of current working image path
 var imgPath;
+var originalImageData;
 var leftMousePressed = false;
 var currentLabel;
 var labels = {};
 
 function resetAll() {
   imgPath = undefined;
+  originalImageData = undefined;
   leftMousePressed = false;
   currentLabel = undefined;
   labels = {};
@@ -87,6 +89,9 @@ function isLabelling() {
 }
 
 function completeLabeling() {
+  var mask = constructMask();
+  var imageWithMask = combineImageAndMask(mask);
+  ctx.putImageData(imageWithMask, 0, 0);
   currentLabel = undefined;
 }
 
@@ -126,6 +131,7 @@ img.onload = function() {
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
+    originalImageData = ctx.getImageData(0, 0, img.width, img.height);
 }
 
 function openImage(filePath) {
@@ -134,6 +140,10 @@ function openImage(filePath) {
   // This will trigger img.onload() method
   imgPath = filePath;
   img.src = imgPath;
+}
+
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function newLabel(labelName) {
@@ -207,6 +217,54 @@ function save(labelFileFullPath) {
         message: 'Label file saved at: \n' + labelFileFullPath
     });
   }); 
+}
+
+// Credits to https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
+function isInPolygon(px, py) {
+  var c = 0;
+  var points = getLabelPoints()
+  var n = points.length;
+  var i, j;
+  for (i = 0, j = n-1; i < n; j = i++) {
+    if (((points[i].y>py) != (points[j].y>py)) &&
+	 (px < (points[j].x-points[i].x) * (py-points[i].y) / (points[j].y-points[i].y) + points[i].x))
+       c = (c + 1) % 2;
+  }
+  return c != 0;
+}
+
+function constructMask() {
+  var mask = ctx.createImageData(img.width, img.height);
+  var x, y;
+  for (y=0; y<img.height; y++) {
+    for (x=0; x<img.width; x++) {
+      if (isInPolygon(x, y)) {
+        mask.data[y*4*mask.width + x*4] = 255;
+      }
+    }
+  }
+  return mask;
+}
+
+function combineImageAndMask(mask) {
+  var output = ctx.getImageData(0, 0, img.width, img.height);
+  var currentLineColor = getCurrentLineColor();
+  var red = parseInt(currentLineColor.substring(1, 3), 16);
+  var green = parseInt(currentLineColor.substring(3, 5), 16);
+  var blue = parseInt(currentLineColor.substring(5, 7), 16);
+  var alpha = 0.2;
+  var x, y;
+  for (y=0; y<img.height; y++) {
+    for (x=0; x<img.width; x++) {
+      var pos = y*4*img.width + x*4;
+      if (mask.data[pos] != 0) {
+        output.data[pos] = Math.floor((1 - alpha) * output.data[pos] + alpha * red);
+        output.data[pos + 1] = Math.floor((1 - alpha) * output.data[pos + 1] + alpha * green);
+        output.data[pos + 2] = Math.floor((1 - alpha) * output.data[pos + 2] + alpha * blue);
+      }
+    }
+  }
+  return output;
 }
 
 document.addEventListener('drop', function (e) {
