@@ -374,9 +374,10 @@ ipcRenderer.on('new-label', (event, arg) => {
     dialog.showErrorBox('Failure', 'Open an image first!');
     return;
   }
+  // Complete current label if is still labelling
   if (isLabelling()) {
-    dialog.showErrorBox('Failure', 'Complete current label before starting a new one!');
-    return;
+    drawTo(getFirstPoint());
+    completeLabeling();
   }
   prompt({
     title: 'Input',
