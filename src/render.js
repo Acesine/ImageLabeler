@@ -233,6 +233,7 @@ function decompressMask(mask) {
 
 function constructLableFileContent() {
   var ret = {
+    dimension: [img.width, img.height],
     shapes: [
     ]
   };

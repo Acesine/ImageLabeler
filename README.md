@@ -63,3 +63,8 @@ Sample label file format: (Taking some properties from LabelMe)
   npm package-win-x64
   npm release-win-x64
   ```
+### Show masks
+```bash
+# Using numpy and matplotlib
+python utils/show_mask_image.py --label-file ...
+``` 
