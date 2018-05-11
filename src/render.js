@@ -14,46 +14,52 @@ class Point {
 var imgPath;
 var originalImageData;
 var leftMousePressed = false;
-var currentLabel;
-var labels = {};
+var isLabelling = false;
+var labels = [];
 
 function resetAll() {
   imgPath = undefined;
   originalImageData = undefined;
   leftMousePressed = false;
-  currentLabel = undefined;
-  labels = {};
+  isLabelling = false;
+  labels = [];
 }
 
+// ----- Following method assumes there's a label and operates on latest label
 function getLastPoint() {
-  if (labels[currentLabel].points.length == 0) return undefined;
-  return labels[currentLabel].points[labels[currentLabel].points.length - 1];
+  if (labels[labels.length-1].points.length == 0) return undefined;
+  return labels[labels.length-1].points[labels[labels.length-1].points.length - 1];
 }
 
 function getFirstPoint() {
-  if (labels[currentLabel].points.length == 0) return undefined;
-  return labels[currentLabel].points[0];
+  if (labels[labels.length-1].points.length == 0) return undefined;
+  return labels[labels.length-1].points[0];
 }
 
 function getLabelPoints() {
-  return labels[currentLabel].points;
+  return labels[labels.length-1].points;
 }
 
 function pushLabelPoint(p) {
-  labels[currentLabel].points.push(p);
+  labels[labels.length-1].points.push(p);
 }
 
 function getCurrentLineColor() {
-  return labels[currentLabel].line_color;
+  return labels[labels.length-1].line_color;
 }
 
 function pushMaskValue(x) {
-  labels[currentLabel].mask.push(x);
+  labels[labels.length-1].mask.push(x);
 }
 
 function getMaskValue(pos) {
-  return labels[currentLabel].mask[pos];
+  return labels[labels.length-1].mask[pos];
 }
+
+function getLableName() {
+  return labels[labels.length-1].label
+}
+// -----
 
 // Draw
 var canvas = document.getElementById("imgCanvas");
@@ -67,7 +73,7 @@ function markFirstPoint(p) {
   ctx.stroke();
   ctx.fillStyle = '#FFFFFF';
   ctx.font = "15px Verdana";
-  ctx.fillText(currentLabel, p.x - 10, p.y - 10);
+  ctx.fillText(getLableName(), p.x - 10, p.y - 10);
 }
 
 function withInCircle(c, p) {
@@ -92,18 +98,14 @@ function drawTo(p) {
   }
 }
 
-function isLabelling() {
-  return imgPath !== undefined && currentLabel !== undefined;
-}
-
 function completeLabeling() {
   constructMask();
   blendImageAndMask();
-  currentLabel = undefined;
+  isLabelling = false;
 }
 
 canvas.onmousedown = function(e) {
-  if (!isLabelling()) return;
+  if (!isLabelling) return;
   if (e.button == 0) {
     // Left button
     var p = new Point(e.offsetX, e.offsetY);
@@ -119,14 +121,14 @@ canvas.onmousedown = function(e) {
 }
 
 canvas.onmousemove = function(e) {
-  if (!isLabelling()) return;
+  if (!isLabelling) return;
   if (leftMousePressed) {
     drawTo(new Point(e.offsetX, e.offsetY));
   }
 }
 
 canvas.onmouseup = function(e) {
-  if (!isLabelling()) return;
+  if (!isLabelling) return;
   if (e.button == 0) {
     // Left button
     leftMousePressed = false;
@@ -155,16 +157,19 @@ function randomInt(min, max) {
 
 function newLabel(labelName) {
   var lineColor = '#'+Math.random().toString(16).substr(-6);
-  if (labelName in labels) {
-    lineColor = labels[labelName].line_color;
+  for (var index in labels) {
+    var label = labels[index];
+    if (label.label == labelName) {
+      lineColor = label.line_color;
+    }
   }
-  labels[labelName] = {
+  labels.push({
     label: labelName,
     line_color: lineColor,
     points: [],
     mask: []
-  }
-  currentLabel = labelName;
+  });
+  isLabelling = true;
 }
 
 function loadLabel(filePath) {
@@ -178,25 +183,25 @@ function loadLabel(filePath) {
       dialog.showErrorBox('Failure', 'Failed to load label file!');
       return;
     }
-    labels = {}
+    labels = []
     loaded.shapes.forEach(element => {
       var label = element.label;
-      labels[label] = {
+      labels.push({
         label: label,
         line_color: element.line_color,
         points: [],
         mask: []
-      };
-      currentLabel = label;
+      });
+      isLabelling = true;
       element.points.forEach(p => {
         drawTo(new Point(p[0], p[1]));
       });
       if ('mask' in element) {
-        labels[label].mask = decompressMask(element.mask);
+        labels[labels.length-1].mask = decompressMask(element.mask);
         blendImageAndMask();
       }
     });
-    currentLabel = undefined;
+    isLabelling = false;
   });
 }
 
@@ -237,14 +242,15 @@ function constructLableFileContent() {
     shapes: [
     ]
   };
-  for (var label in labels) {
+  for (var index in labels) {
+    var label = labels[index];
     var labelData = {
-      label: labels[label].label,
-      line_color: labels[label].line_color,
+      label: label.label,
+      line_color: label.line_color,
       points: [],
-      mask: compressMask(labels[label].mask)
+      mask: compressMask(label.mask)
     };
-    labels[label].points.forEach(element => {
+    label.points.forEach(element => {
       labelData.points.push([element.x, element.y]);
     });
     ret.shapes.push(labelData);
@@ -376,7 +382,7 @@ ipcRenderer.on('new-label', (event, arg) => {
     return;
   }
   // Complete current label if is still labelling
-  if (isLabelling()) {
+  if (isLabelling) {
     drawTo(getFirstPoint());
     completeLabeling();
   }
