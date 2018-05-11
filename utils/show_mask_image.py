@@ -27,9 +27,6 @@ def main(file_path, save_file):
         file_name = os.path.basename(file_path)
         label_file = json.load(f)
         dimension = label_file['dimension']
-        shape_cnt = len(label_file['shapes'])
-        cols = min(3, shape_cnt)
-        rows = shape_cnt // cols if shape_cnt % cols == 0 else shape_cnt // cols + 1
         # A label may contains multiple parts
         label_array = {}
         for shape in label_file['shapes']:
@@ -43,6 +40,9 @@ def main(file_path, save_file):
             else:
                 label_array[label_name] = combine(nparray, label_array[label_name], array_shape)
 
+        shape_cnt = len(label_array)
+        cols = min(3, shape_cnt)
+        rows = shape_cnt // cols if shape_cnt % cols == 0 else shape_cnt // cols + 1
         index = 1
         for label_name in label_array:
             nparray = label_array[label_name]
@@ -50,7 +50,6 @@ def main(file_path, save_file):
             plt.title(label_name)
             plt.imshow(nparray, cmap='binary')
             if save_file:
-                label_name = shape['label']
                 matplotlib.image.imsave('{}_{}.png'.format(file_name, label_name), nparray, cmap='binary')
             index += 1
 
