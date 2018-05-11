@@ -44,24 +44,24 @@ Sample label file format: (Taking some properties from LabelMe)
 }
 ```
 ### Run
-- Prerequisite: https://www.npmjs.com/get-npm
+- Prerequisite: https://yarnpkg.com/en/ or https://www.npmjs.com/get-npm
 - Run with source:
   ```bash
-  npm install
-  npm start
+  yarn install
+  yarn start
   ```
 - Install:
   ```bash
   # On mac, will create .dmg
-  npm install
-  npm package-mac
-  npm release-mac
+  yarn install
+  yarn run package-mac
+  yarn run release-mac
   ```
   ```bash
   # On x64 windows, will create .exe under ./release-builds/windows-installer
-  npm install
-  npm package-win-x64
-  npm release-win-x64
+  yarn install
+  yarn run package-win-x64
+  yarn run release-win-x64
   ```
 ### Show masks
 ```bash
