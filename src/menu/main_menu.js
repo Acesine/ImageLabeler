@@ -17,27 +17,35 @@ function onSave(menuItem, browserWindow, event) {
   browserWindow.webContents.send('save');
 }
 
+var fileSubMenu = [
+  {
+    label: 'Open',
+    click: onOpen
+  },
+  {
+    type: 'separator'
+  },
+  {
+    label: 'New label',
+    click: onNewLabel
+  },
+  {
+    label: 'Load label',
+    click: onLoadLabel
+  },
+  {
+    label: 'Save label',
+    click: onSave
+  },
+  {
+    type: 'separator'
+  }
+]
+
 const template = [
   {
     label: 'File',
-    submenu: [
-      {
-        label: 'Open',
-        click: onOpen
-      },
-      {
-        label: 'New label',
-        click: onNewLabel
-      },
-      {
-        label: 'Load label',
-        click: onLoadLabel
-      },
-      {
-        label: 'Save label',
-        click: onSave
-      }
-    ]
+    submenu: fileSubMenu
   },
   {
     label: 'View',
@@ -130,23 +138,6 @@ const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
 
 require('electron-context-menu')({
-  append: (params, browserWindow) => [
-	  {
-      label: 'Open',
-      click: onOpen
-    },
-    {
-      label: 'New label',
-      click: onNewLabel
-    },
-    {
-      label: 'Load label',
-      click: onLoadLabel
-    },
-    {
-      label: 'Save label',
-      click: onSave
-    }
-  ],
+  append: (params, browserWindow) => fileSubMenu,
   showInspectElement: false
 })

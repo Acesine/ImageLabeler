@@ -382,7 +382,7 @@ ipcRenderer.on('new-label', (event, arg) => {
     return;
   }
   // Complete current label if is still labelling
-  if (isLabelling) {
+  if (isLabelling && getFirstPoint() !== undefined) {
     drawTo(getFirstPoint());
     completeLabeling();
   }
