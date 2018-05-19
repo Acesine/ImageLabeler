@@ -13,6 +13,8 @@ class Point {
 // Keep a record of current working image path
 var imgPath;
 var originalImageData;
+var currentImageData;
+var showingMask = false;
 var leftMousePressed = false;
 var isLabelling = false;
 var labels = [];
@@ -20,6 +22,8 @@ var labels = [];
 function resetAll() {
   imgPath = undefined;
   originalImageData = undefined;
+  currentImageData = undefined;
+  showingMask = false;
   leftMousePressed = false;
   isLabelling = false;
   labels = [];
@@ -141,6 +145,7 @@ img.onload = function() {
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
     originalImageData = ctx.getImageData(0, 0, img.width, img.height);
+    currentImageData = ctx.getImageData(0, 0, img.width, img.height);
 }
 
 function openImage(filePath) {
@@ -300,7 +305,7 @@ function constructMask() {
 }
 
 function blendImageAndMask() {
-  var imageWithMask = ctx.getImageData(0, 0, img.width, img.height);
+  currentImageData = ctx.getImageData(0, 0, img.width, img.height);
   var currentLineColor = getCurrentLineColor();
   var red = parseInt(currentLineColor.substring(1, 3), 16);
   var green = parseInt(currentLineColor.substring(3, 5), 16);
@@ -311,13 +316,41 @@ function blendImageAndMask() {
     for (x=0; x<img.width; x++) {
       var pos = y*4*img.width + x*4;
       if (getMaskValue(y*img.width+x) > 0) {
-        imageWithMask.data[pos] = Math.floor((1 - alpha) * imageWithMask.data[pos] + alpha * red);
-        imageWithMask.data[pos + 1] = Math.floor((1 - alpha) * imageWithMask.data[pos + 1] + alpha * green);
-        imageWithMask.data[pos + 2] = Math.floor((1 - alpha) * imageWithMask.data[pos + 2] + alpha * blue);
+        currentImageData.data[pos] = Math.floor((1 - alpha) * currentImageData.data[pos] + alpha * red);
+        currentImageData.data[pos + 1] = Math.floor((1 - alpha) * currentImageData.data[pos + 1] + alpha * green);
+        currentImageData.data[pos + 2] = Math.floor((1 - alpha) * currentImageData.data[pos + 2] + alpha * blue);
       }
     }
   }
-  ctx.putImageData(imageWithMask, 0, 0);
+  showCurrentImage();
+}
+
+function showCurrentImage() {
+  ctx.putImageData(currentImageData, 0, 0);
+}
+
+function showMaskImage() {
+  var maskImage = ctx.getImageData(0, 0, img.width, img.height);
+  var x, y;
+  for (y=0; y<img.height; y++) {
+    for (x=0; x<img.width; x++) {
+      var pos = y*4*img.width + x*4;
+      var val = 0;
+      for (var index in labels) {
+        var label = labels[index];
+        if (label.mask[y*img.width+x] > 0) {
+          val = 255;
+          break;
+        }
+      }
+      maskImage.data[pos] = val;
+      maskImage.data[pos + 1] = val;
+      maskImage.data[pos + 2] = val;
+    }
+  }
+  // Save current image first
+  currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+  ctx.putImageData(maskImage, 0, 0);
 }
 
 document.addEventListener('drop', function (e) {
@@ -360,6 +393,7 @@ ipcRenderer.on('save', (event, arg) => {
 });
 
 ipcRenderer.on('load-label', (event, arg) => {
+  // Preconditions
   if (imgPath === undefined) {
     dialog.showErrorBox('Failure', 'Open an image first!');
     return;
@@ -377,6 +411,7 @@ ipcRenderer.on('load-label', (event, arg) => {
 });
 
 ipcRenderer.on('new-label', (event, arg) => {
+  // Preconditions
   if (imgPath === undefined) {
     dialog.showErrorBox('Failure', 'Open an image first!');
     return;
@@ -397,5 +432,46 @@ ipcRenderer.on('new-label', (event, arg) => {
   })
   .catch(e => {
     //
+  });
+});
+
+ipcRenderer.on('toggle-masks', (event, arg) => {
+  // Preconditions
+  if (imgPath === undefined) {
+    dialog.showErrorBox('Failure', 'Open an image first!');
+    return;
+  }
+
+  if (showingMask) {
+    showCurrentImage();
+  } else {
+    showMaskImage();
+  }
+  showingMask = !showingMask;
+});
+
+ipcRenderer.on('save-canvas', (event, arg) => {
+  // Preconditions
+  if (imgPath === undefined) {
+    dialog.showErrorBox('Failure', 'Open an image first!');
+    return;
+  }
+
+  dialog.showSaveDialog(filePath => {        
+    if(filePath === undefined) { 
+      // 
+    } else { 
+      var imgAsDataURL = imgCanvas.toDataURL("image/jpeg", 1.0);
+      var data = imgAsDataURL.replace(/^data:image\/\w+;base64,/, "");
+      var buf = new Buffer(data, 'base64');
+      fs.writeFile(filePath, buf, err => {
+        if (err) {
+            dialog.showErrorBox('Failure', 'Filed to save file!');
+        }
+        dialog.showMessageBox({
+            message: 'Image saved at: \n' + filePath
+        });
+      });
+    } 
   });
 });

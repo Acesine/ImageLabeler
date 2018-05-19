@@ -17,6 +17,14 @@ function onSave(menuItem, browserWindow, event) {
   browserWindow.webContents.send('save');
 }
 
+function onToggleMasks(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('toggle-masks');
+}
+
+function onSaveImage(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('save-canvas');
+}
+
 var fileSubMenu = [
   {
     label: 'Open',
@@ -39,6 +47,17 @@ var fileSubMenu = [
   },
   {
     type: 'separator'
+  },
+  {
+    label: 'Toggle masks',
+    click: onToggleMasks
+  },
+  {
+    type: 'separator'
+  },
+  {
+    label: 'Save this image',
+    click: onSaveImage
   }
 ]
 
