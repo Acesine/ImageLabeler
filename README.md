@@ -6,6 +6,7 @@ A **toy** image labeler...
 - To load an existing label file onto current image: File -> Load label.
 - To save label: File -> Save label.
 - To complete a contour, click inside the circle around starting point. This will complete current label.
+- To save mask as image: Toggle masks -> Save image.
 
 ### Format
 Sample label file format: (Taking some properties from LabelMe)

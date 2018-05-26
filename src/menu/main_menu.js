@@ -1,5 +1,7 @@
 const { app, Menu } = require('electron')
-const fs = require('fs') 
+const fs = require('fs')
+const language = require('./language')
+const contextmenu = require('electron-context-menu')
 
 function onOpen(menuItem, browserWindow, event) {
   browserWindow.webContents.send('open-image');
@@ -25,138 +27,102 @@ function onSaveImage(menuItem, browserWindow, event) {
   browserWindow.webContents.send('save-canvas');
 }
 
-var fileSubMenu = [
-  {
-    label: 'Open',
-    click: onOpen
-  },
-  {
-    type: 'separator'
-  },
-  {
-    label: 'New label',
-    click: onNewLabel
-  },
-  {
-    label: 'Load label',
-    click: onLoadLabel
-  },
-  {
-    label: 'Save label',
-    click: onSave
-  },
-  {
-    type: 'separator'
-  },
-  {
-    label: 'Toggle masks',
-    click: onToggleMasks
-  },
-  {
-    type: 'separator'
-  },
-  {
-    label: 'Save this image',
-    click: onSaveImage
-  }
-]
+// Language related
+function onChinese(menuItem, browserWindow, event) {
+  buildMenu('ch');
+}
 
-const template = [
-  {
-    label: 'File',
-    submenu: fileSubMenu
-  },
-  {
-    label: 'View',
-    submenu: [
-      {
-        role: 'togglefullscreen'
-      }
-    ]
-  },
-  {
-    role: 'window',
-    submenu: [
-      {
-        role: 'minimize'
-      },
-      {
-        role: 'close'
-      }
-    ]
-  },
-  {
-    role: 'help',
-    submenu: [
-    ]
-  }
-];
+function onEnglish(menuItem, browserWindow, event) {
+  buildMenu('en');
+}
 
-if (process.platform === 'darwin') {
-  const name = app.getName()
-  template.unshift({
-    label: name,
-    submenu: [
-      {
-        role: 'services',
-        submenu: []
-      },
-      {
-        type: 'separator'
-      },
-      {
-        role: 'hide'
-      },
-      {
-        role: 'hideothers'
-      },
-      {
-        role: 'unhide'
-      },
-      {
-        type: 'separator'
-      },
-      {
-        role: 'quit'
-      }
-    ]
-  })
-  // Edit menu.
-  template[1].submenu.push(
+function buildFileSubMenu(lang) {
+  return [
     {
-      type: 'separator'
-    }
-  )
-  // Window menu.
-  template[3].submenu = [
-    {
-      label: 'Close',
-      accelerator: 'CmdOrCtrl+W',
-      role: 'close'
-    },
-    {
-      label: 'Minimize',
-      accelerator: 'CmdOrCtrl+M',
-      role: 'minimize'
-    },
-    {
-      label: 'Zoom',
-      role: 'zoom'
+      label: language(lang).OpenImage,
+      click: onOpen
     },
     {
       type: 'separator'
     },
     {
-      label: 'Bring All to Front',
-      role: 'front'
+      label: language(lang).NewLabel,
+      click: onNewLabel
+    },
+    {
+      label: language(lang).LoadLabel,
+      click: onLoadLabel
+    },
+    {
+      label: language(lang).SaveLabel,
+      click: onSave
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: language(lang).ToggleMasks,
+      click: onToggleMasks
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: language(lang).SaveImage,
+      click: onSaveImage
     }
-  ]
-};
+  ];
+}
 
-const menu = Menu.buildFromTemplate(template);
-Menu.setApplicationMenu(menu);
+function buildTemplate(lang) {
+  return [
+    {
+      label: 'File',
+      submenu: buildFileSubMenu(lang)
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          role: 'togglefullscreen'
+        }
+      ]
+    },
+    {
+      role: 'window',
+      submenu: [
+        {
+          role: 'minimize'
+        },
+        {
+          role: 'close'
+        }
+      ]
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: '中文',
+          click: onChinese
+        },
+        {
+          label: 'English',
+          click: onEnglish
+        }
+      ]
+    }
+  ];
+}
 
-require('electron-context-menu')({
-  append: (params, browserWindow) => fileSubMenu,
+function buildMenu(lang) {
+  const menu = Menu.buildFromTemplate(buildTemplate(lang));
+  Menu.setApplicationMenu(menu);
+}
+
+buildMenu('ch');
+// TODO: figuire out how to reload context menu
+contextmenu({
+  prepend: (params, browserWindow) => buildFileSubMenu('ch'),
   showInspectElement: false
 })
