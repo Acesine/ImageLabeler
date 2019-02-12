@@ -3,6 +3,8 @@ const { dialog } = require('electron').remote;
 const prompt = require('electron-prompt');
 const fs = require('fs');
 
+const mask = require('./mask.js')
+
 class Point {
   constructor(x, y) {
     this.x = x;
@@ -202,43 +204,12 @@ function loadLabel(filePath) {
         drawTo(new Point(p[0], p[1]));
       });
       if ('mask' in element) {
-        labels[labels.length-1].mask = decompressMask(element.mask);
+        labels[labels.length-1].mask = mask.decompress(element.mask);
         blendImageAndMask();
       }
     });
     isLabelling = false;
   });
-}
-
-// compress [1,1,1,1,0,0,0,0,1,1,1] -> [[1,4],[0,4],[1,3]]
-// TODO: use a better compression method
-function compressMask(mask) {
-  if (mask.length == 0) return mask;
-  var ret = [];
-  var curr = mask[0];
-  var cnt = 1;
-  for (var i=1; i<mask.length; i++) {
-    if (mask[i] != curr) {
-      ret.push([curr, cnt]);
-      curr = mask[i];
-      cnt = 1;
-      continue;
-    }
-    cnt ++;
-  }
-  ret.push([curr, cnt]);
-  return ret;
-}
-
-function decompressMask(mask) {
-  if (mask.length == 0) return mask;
-  var ret = [];
-  mask.forEach(element => {
-    for (var i=0; i<element[1]; i++) {
-      ret.push(element[0]);
-    }
-  });
-  return ret;
 }
 
 function constructLableFileContent() {
@@ -253,7 +224,7 @@ function constructLableFileContent() {
       label: label.label,
       line_color: label.line_color,
       points: [],
-      mask: compressMask(label.mask)
+      mask: mask.compress(label.mask)
     };
     label.points.forEach(element => {
       labelData.points.push([element.x, element.y]);
@@ -263,18 +234,22 @@ function constructLableFileContent() {
   return JSON.stringify(ret, null, 4);
 }
 
-function save(labelFileFullPath) {
+function save(fileFullPath) {
+  var labelFileFullPath = fileFullPath + '.label.json';
   if (imgPath === undefined) return;
   var content = constructLableFileContent();
   fs.writeFile(labelFileFullPath, content, 'utf8', err => {
     if (err) {
-        dialog.showErrorBox('Failure', 'Filed to save file!');
+      dialog.showErrorBox('Failure', 'Filed to save file!');
     }
-  
-    dialog.showMessageBox({
-        message: 'Label file saved at: \n' + labelFileFullPath
-    });
-  }); 
+  });
+  showMaskImage();
+  var maskFileFullPath = fileFullPath + '.mask';
+  saveCanvas(maskFileFullPath);
+  showCurrentImage();
+  dialog.showMessageBox({
+    message: 'Lable and mask files are saved! 🎉🎉🎉'
+  });
 }
 
 // Credits to https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
@@ -327,9 +302,10 @@ function blendImageAndMask() {
 
 function showCurrentImage() {
   ctx.putImageData(currentImageData, 0, 0);
+  showingMask = false;
 }
 
-function showMaskImage() {
+function getMaskImage() {
   var maskImage = ctx.getImageData(0, 0, img.width, img.height);
   var x, y;
   for (y=0; y<img.height; y++) {
@@ -348,9 +324,25 @@ function showMaskImage() {
       maskImage.data[pos + 2] = val;
     }
   }
+  return maskImage;
+}
+
+function showMaskImage() {
   // Save current image first
   currentImageData = ctx.getImageData(0, 0, img.width, img.height);
-  ctx.putImageData(maskImage, 0, 0);
+  ctx.putImageData(getMaskImage(), 0, 0);
+  showingMask = true;
+}
+
+function saveCanvas(filePath) {
+  var imgAsDataURL = canvas.toDataURL("image/png", 1.0);
+  var data = imgAsDataURL.replace(/^data:image\/\w+;base64,/, "");
+  var buf = new Buffer(data, 'base64');
+  fs.writeFile(filePath + '.png', buf, err => {
+    if (err) {
+        dialog.showErrorBox('Failure', 'Filed to save file!');
+    }
+  });
 }
 
 document.addEventListener('drop', function (e) {
@@ -447,7 +439,6 @@ ipcRenderer.on('toggle-masks', (event, arg) => {
   } else {
     showMaskImage();
   }
-  showingMask = !showingMask;
 });
 
 ipcRenderer.on('save-canvas', (event, arg) => {
@@ -461,17 +452,7 @@ ipcRenderer.on('save-canvas', (event, arg) => {
     if(filePath === undefined) { 
       // 
     } else { 
-      var imgAsDataURL = imgCanvas.toDataURL("image/jpeg", 1.0);
-      var data = imgAsDataURL.replace(/^data:image\/\w+;base64,/, "");
-      var buf = new Buffer(data, 'base64');
-      fs.writeFile(filePath, buf, err => {
-        if (err) {
-            dialog.showErrorBox('Failure', 'Filed to save file!');
-        }
-        dialog.showMessageBox({
-            message: 'Image saved at: \n' + filePath
-        });
-      });
+      saveCanvas(filePath);
     } 
   });
 });
