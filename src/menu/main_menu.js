@@ -11,6 +11,10 @@ function onNewLabel(menuItem, browserWindow, event) {
   browserWindow.webContents.send('new-label');
 }
 
+function onRemoveLabel(menuItem, browserWindow, event) { 
+  browserWindow.webContents.send('remove-label');
+}
+
 function onLoadLabel(menuItem, browserWindow, event) {
   browserWindow.webContents.send('load-label');
 }
@@ -48,6 +52,10 @@ function buildFileSubMenu(lang) {
     {
       label: language(lang).NewLabel,
       click: onNewLabel
+    },
+    {
+      label: language(lang).RemoveLabel,
+      click: onRemoveLabel
     },
     {
       label: language(lang).LoadLabel,

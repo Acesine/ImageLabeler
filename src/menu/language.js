@@ -1,6 +1,7 @@
 var ENG = {
     OpenImage: 'Open image',
     NewLabel: 'New label',
+    RemoveLabel: 'Remove label',
     LoadLabel: 'Load label',
     SaveLabel: 'Save label',
     ToggleMasks: 'Toggle masks',
@@ -10,6 +11,7 @@ var ENG = {
 var CHI = {
     OpenImage: '打开图像',
     NewLabel: '新建标注',
+    RemoveLabel: '删除标注',
     LoadLabel: '载入标注',
     SaveLabel: '保存标注',
     ToggleMasks: '切换图像/蒙版',
