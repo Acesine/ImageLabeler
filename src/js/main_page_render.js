@@ -379,11 +379,11 @@ function getMaskImage() {
   for (y=0; y<img.height; y++) {
     for (x=0; x<img.width; x++) {
       var pos = y*4*img.width + x*4;
-      var val = 0;
+      var val = 255;
       for (var index in g_labels) {
         var label = g_labels[index];
         if (label.mask[y*img.width+x] > 0) {
-          val = 255;
+          val = 0;
           break;
         }
       }
