@@ -6,4 +6,6 @@
 - ~~As a user, I can load an label file into current image.~~
 - ~~As a user, I should first define a label, then draw it.~~
 - ~~App should guide user to make the contour closed.~~
-- Color choosen is better to be a bright color than a dark one
+- ~~Color choosen is better to be a bright color than a dark one~~
+- ~~Saving label will save label file and all mask images~~
+- ~~As a user, I could remove a label~~

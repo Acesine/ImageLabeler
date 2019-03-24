@@ -1,5 +1,6 @@
 var ENG = {
     OpenImage: 'Open image',
+    CropImage: 'Crop image',
     NewLabel: 'New label',
     RemoveLabel: 'Remove label',
     LoadLabel: 'Load label',
@@ -10,6 +11,7 @@ var ENG = {
 
 var CHI = {
     OpenImage: '打开图像',
+    CropImage: '新建标注区',
     NewLabel: '新建标注',
     RemoveLabel: '删除标注',
     LoadLabel: '载入标注',

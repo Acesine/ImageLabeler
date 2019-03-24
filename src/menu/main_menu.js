@@ -7,6 +7,10 @@ function onOpen(menuItem, browserWindow, event) {
   browserWindow.webContents.send('open-image');
 }
 
+function onCrop(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('crop-image');
+}
+
 function onNewLabel(menuItem, browserWindow, event) { 
   browserWindow.webContents.send('new-label');
 }
@@ -45,6 +49,13 @@ function buildFileSubMenu(lang) {
     {
       label: language(lang).OpenImage,
       click: onOpen
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: language(lang).CropImage,
+      click: onCrop
     },
     {
       type: 'separator'

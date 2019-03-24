@@ -20,6 +20,8 @@ var g_showingMask = false;
 var g_leftMousePressed = false;
 var g_isLabelling = false;
 var g_labels = [];
+var g_isCropping = undefined;
+var g_rois = {};
 
 function resetAll() {
   g_imgPath = undefined;
@@ -29,6 +31,8 @@ function resetAll() {
   g_leftMousePressed = false;
   g_isLabelling = false;
   g_labels = [];
+  g_isCropping = undefined;
+  g_rois = {};
 }
 
 // ----- Following method assumes there's a label and operates on latest label
@@ -107,37 +111,71 @@ function drawTo(p) {
 function completeLabeling() {
   constructMask();
   blendImageAndMask();
+  canvas.style.cursor = 'default';
   g_isLabelling = false;
 }
 
 canvas.onmousedown = function(e) {
-  if (!g_isLabelling) return;
   if (e.button == 0) {
     // Left button
     var p = new Point(e.offsetX, e.offsetY);
-    if (getLastPoint() !== undefined && withInCircle(getFirstPoint(), p)) {
-      drawTo(getFirstPoint());
-      completeLabeling();
-      g_leftMousePressed = false;
-      return;
+
+    // Label:
+    if (g_isLabelling) {
+      if (getLastPoint() !== undefined && withInCircle(getFirstPoint(), p)) {
+        drawTo(getFirstPoint());
+        completeLabeling();
+        g_leftMousePressed = false;
+        return;
+      }
+      drawTo(p);
     }
+
+    // Crop:
+    if (g_isCropping) {
+      g_rois[g_isCropping].push(p);
+      g_rois[g_isCropping].push(p);
+      drawROI(g_isCropping);
+    }
+
     g_leftMousePressed = true;
-    drawTo(p);
   }
 }
 
 canvas.onmousemove = function(e) {
-  if (!g_isLabelling) return;
   if (g_leftMousePressed) {
-    drawTo(new Point(e.offsetX, e.offsetY));
+    // Lable
+    if (g_isLabelling) {
+      drawTo(new Point(e.offsetX, e.offsetY));
+    }
+
+    // Crop
+    if (g_isCropping) {
+      var p = new Point(e.offsetX, e.offsetY);
+      let origin = g_rois[g_isCropping][0];
+      if (e.shiftKey) {
+        let l = Math.abs(p.y - origin.y);
+        let sign = Math.sign(p.x - origin.x);
+        p = new Point(origin.x + sign*l, p.y);
+      }
+      g_rois[g_isCropping][1] = p;
+      refresh(false);
+    }
   }
 }
 
 canvas.onmouseup = function(e) {
-  if (!g_isLabelling) return;
   if (e.button == 0) {
+    var p = new Point(e.offsetX, e.offsetY);
     // Left button
     g_leftMousePressed = false;
+    if (g_isCropping) {
+      g_rois[g_isCropping][1] = p;
+      refresh(false);
+      canvas.style.cursor = 'default';
+      g_isCropping = undefined;
+      g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+    }
   }
 }
 
@@ -176,6 +214,7 @@ function newLabel(labelName) {
     points: [],
     mask: []
   });
+  canvas.style.cursor = 'crosshair';
   g_isLabelling = true;
 }
 
@@ -195,6 +234,15 @@ function randomBrightColor() {
     }
     t += 1;
   }
+}
+
+function crop(regionName) {
+  // Save current image data
+  g_rois[regionName] = [];
+  refresh();
+  g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+  canvas.style.cursor = 'crosshair';
+  g_isCropping = regionName;
 }
 
 function removeLabel(labelName) {
@@ -245,14 +293,42 @@ function loadLabel(filePath) {
         blendImageAndMask();
       }
     });
+    g_rois = loaded.rois? loaded.rois : {};
+    drawROIs();
     g_isLabelling = false;
   });
 }
 
-function refresh() {
-  showOriginalImage();
+function refresh(withOriginalImage=true) {
+  if (withOriginalImage) {
+    showOriginalImage();
+  } else {
+    showCurrentImage();
+  }
   for (var index in g_labels) {
     drawLabel(index);
+  }
+  drawROIs();
+}
+
+function drawROI(regionName) {
+  let roi = g_rois[regionName];
+  if (roi.length != 2) return;
+  let p1 = roi[0];
+  let p2 = roi[1];
+  let tl = new Point(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y))
+  let w = Math.abs(p1.x - p2.x);
+  let h = Math.abs(p1.y - p2.y);
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeRect(tl.x, tl.y, w, h);
+  ctx.font = "15px Verdana";
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(regionName, tl.x, tl.y - 10);
+}
+
+function drawROIs() {
+  for (var index in g_rois) {
+    drawROI(index);
   }
 }
 
@@ -278,7 +354,8 @@ function constructLableFileContent() {
   var ret = {
     dimension: [img.width, img.height],
     shapes: [
-    ]
+    ],
+    rois: g_rois
   };
   for (var index in g_labels) {
     var label = g_labels[index];
@@ -304,21 +381,40 @@ function save(fileFullPath) {
     if (err) {
       dialog.showErrorBox('Failure', 'Filed to save file!');
     }
-  });
-  var labelNames = new Set([]);
-  for (var index in g_labels) {
-    labelNames.add(g_labels[index].label);
-  }
-  for (let labelName of labelNames) {
-    showMaskImage(labelName);
-    var maskFileFullPath = fileFullPath + '_' + labelName + '.mask';
-    saveCanvas(maskFileFullPath, () => {
-      console.log("Saved file " + maskFileFullPath);
+    console.log("Saved label file " + labelFileFullPath);
+    var labelNames = new Set([]);
+    for (var index in g_labels) {
+      labelNames.add(g_labels[index].label);
+    }
+    var regionNames = new Set([]);
+    for (var regionName in g_rois) {
+      regionNames.add(regionName);
+    }
+    if (regionNames.size > 0) {
+      for (let regionName of regionNames) {      
+        var regionalImageFileFullPath = fileFullPath + '_' + regionName;
+        saveOriginalImageWithROI(regionName, regionalImageFileFullPath, () => {
+          console.log("Saved regional image " + regionalImageFileFullPath);
+        });
+        for (let labelName of labelNames) {
+          var maskFileFullPath = fileFullPath + '_' + regionName + '_' + labelName + '.mask';
+          saveMaskImage(maskFileFullPath, () => {
+            console.log("Saved regional mask image " + maskFileFullPath);
+          }, labelName, regionName);
+        }
+      }
+    } else {
+      for (let labelName of labelNames) {
+        var maskFileFullPath = fileFullPath + '_' + labelName + '.mask';
+        saveMaskImage(maskFileFullPath, () => {
+          console.log("Saved file " + maskFileFullPath);
+        }, labelName);
+      }
+    }
+    refresh();
+    dialog.showMessageBox({
+      message: '标注和蒙版文件保存成功! 🎉🎉🎉'
     });
-    showCurrentImage();
-  }
-  dialog.showMessageBox({
-    message: '标注和蒙版文件保存成功! 🎉🎉🎉'
   });
 }
 
@@ -380,12 +476,23 @@ function showOriginalImage() {
   g_showingMask = false;
 }
 
-function getMaskImage(labelName=null) {
-  var maskImage = ctx.getImageData(0, 0, img.width, img.height);
-  var x, y;
-  for (y=0; y<img.height; y++) {
-    for (x=0; x<img.width; x++) {
-      var pos = y*4*img.width + x*4;
+function getMaskImage(labelName=null, regionName=null) {
+  var w = img.width;
+  var h = img.height;
+  var topleft = new Point(0, 0);
+  if (regionName != null) {
+    let region = g_rois[regionName];
+    w = Math.abs(region[0].x - region[1].x);
+    h = Math.abs(region[0].y - region[1].y);
+    topleft = new Point(Math.min(region[0].x, region[1].x), Math.min(region[0].y, region[1].y));
+  }
+  var maskImage = ctx.createImageData(w, h);
+  //var maskImage = ctx.getImageData(0, 0, img.width, img.height);
+  var targetX, targetY;
+  for (targetY=0; targetY<h; targetY++) {
+    for (targetX=0; targetX<w; targetX++) {
+      let x = targetX + topleft.x;
+      let y = targetY + topleft.y;
       var val = 255;
       if (labelName === null) {
         for (var index in g_labels) {
@@ -404,23 +511,73 @@ function getMaskImage(labelName=null) {
           }
         }
       }
+      let pos = targetY*4*w + targetX*4;
       maskImage.data[pos] = val;
       maskImage.data[pos + 1] = val;
       maskImage.data[pos + 2] = val;
+      maskImage.data[pos + 3] = 255;
     }
   }
   return maskImage;
 }
 
-function showMaskImage(labelName=null) {
+function showMaskImage(labelName=null, regionName=null) {
   // Save current image first
   g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
-  ctx.putImageData(getMaskImage(labelName), 0, 0);
+  ctx.putImageData(getMaskImage(labelName, regionName), 0, 0);
   g_showingMask = true;
 }
 
-function saveCanvas(filePath, callback) {
-  var imgAsDataURL = canvas.toDataURL("image/png", 1.0);
+function saveOriginalImageWithROI(regionName, filePath, callback) {
+  let region = g_rois[regionName];
+  let w = Math.abs(region[0].x - region[1].x);
+  let h = Math.abs(region[0].y - region[1].y);
+  let topleft = new Point(Math.min(region[0].x, region[1].x), Math.min(region[0].y, region[1].y));
+
+  var roiImage = ctx.createImageData(w, h);
+  var targetX, targetY;
+  for (targetY=0; targetY<h; targetY++) {
+    for (targetX=0; targetX<w; targetX++) {
+      let x = targetX + topleft.x;
+      let y = targetY + topleft.y;
+      let pos = y*4*img.width + x*4;
+      let targetPos = targetY*4*w + targetX*4;
+      roiImage.data[targetPos] = g_originalImageData.data[pos];
+      roiImage.data[targetPos + 1] = g_originalImageData.data[pos + 1];
+      roiImage.data[targetPos + 2] = g_originalImageData.data[pos + 2];
+      roiImage.data[targetPos + 3] = g_originalImageData.data[pos + 3];
+    }
+  }
+  let tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = w;
+  tmpCanvas.height = h;
+  let tmpCtx = tmpCanvas.getContext('2d');
+  tmpCtx.putImageData(roiImage, 0, 0);
+
+  saveCanvas(filePath, callback, tmpCanvas);
+}
+
+function saveMaskImage(filePath, callback, labelName=null, regionName=null) {
+  var w = img.width;
+  var h = img.height;
+  if (regionName != null) {
+    let region = g_rois[regionName];
+    w = Math.abs(region[0].x - region[1].x);
+    h = Math.abs(region[0].y - region[1].y);
+  }
+  let tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = w;
+  tmpCanvas.height = h;
+  let tmpCtx = tmpCanvas.getContext('2d');
+
+  let imageData = getMaskImage(labelName, regionName);
+  tmpCtx.putImageData(imageData, 0, 0);
+
+  saveCanvas(filePath, callback, tmpCanvas);
+}
+
+function saveCanvas(filePath, callback, canvasToSave=canvas) {
+  var imgAsDataURL = canvasToSave.toDataURL("image/png", 1.0);
   var data = imgAsDataURL.replace(/^data:image\/\w+;base64,/, "");
   var buf = new Buffer(data, 'base64');
   fs.writeFile(filePath + '.png', buf, err => {
@@ -450,6 +607,20 @@ document.addEventListener('dragover', e => {
 });
 
 // IPC ops
+function commonPreconditions() {
+  // Preconditions
+  if (g_imgPath === undefined) {
+    dialog.showErrorBox('Failure', '请先打开图像');
+    return false;
+  }
+  // Complete current label if is still labelling
+  if (g_isLabelling && getFirstPoint() !== undefined) {
+    drawTo(getFirstPoint());
+    completeLabeling();
+  }
+  return true;
+}
+
 ipcRenderer.on('open-image', (event, arg) => {
   dialog.showOpenDialog(fileNames => {        
     // fileNames is an array that contains all the selected 
@@ -458,6 +629,22 @@ ipcRenderer.on('open-image', (event, arg) => {
     } else { 
       openImage(fileNames[0]);
     } 
+  });
+});
+
+ipcRenderer.on('crop-image', (event, arg) => {
+  if (!commonPreconditions()) return;
+  prompt({
+    title: 'Input',
+    label: '标注区名称:',
+    type: 'input'
+  })
+  .then(r => {
+    if (r == null || r.length == 0) return;
+    crop(r);
+  })
+  .catch(e => {
+    //
   });
 });
 
@@ -474,7 +661,7 @@ ipcRenderer.on('save', (event, arg) => {
 ipcRenderer.on('load-label', (event, arg) => {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', 'Open an image first!');
+    dialog.showErrorBox('Failure', '请先打开图像');
     return;
   }
   dialog.showOpenDialog(fileNames => {        
@@ -491,14 +678,10 @@ ipcRenderer.on('load-label', (event, arg) => {
 
 ipcRenderer.on('new-label', (event, arg) => {
   // Preconditions
-  if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', 'Open an image first!');
-    return;
-  }
-  // Complete current label if is still labelling
-  if (g_isLabelling && getFirstPoint() !== undefined) {
-    drawTo(getFirstPoint());
-    completeLabeling();
+  if (!commonPreconditions()) return;
+  // Turn off cropping
+  if (g_isCropping) {
+    g_isCropping = undefined;
   }
   prompt({
     title: 'Input',
@@ -516,15 +699,7 @@ ipcRenderer.on('new-label', (event, arg) => {
 
 ipcRenderer.on('remove-label', (event, arg) => {
   // Preconditions
-  if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', 'Open an image first!');
-    return;
-  }
-  // Complete current label if is still labelling
-  if (g_isLabelling && getFirstPoint() !== undefined) {
-    drawTo(getFirstPoint());
-    completeLabeling();
-  }
+  if (!commonPreconditions()) return;
   prompt({
     title: 'Input',
     label: 'Label name:',
@@ -541,10 +716,7 @@ ipcRenderer.on('remove-label', (event, arg) => {
 
 ipcRenderer.on('toggle-masks', (event, arg) => {
   // Preconditions
-  if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', 'Open an image first!');
-    return;
-  }
+  if (!commonPreconditions()) return;
 
   if (g_showingMask) {
     showCurrentImage();
@@ -556,7 +728,7 @@ ipcRenderer.on('toggle-masks', (event, arg) => {
 ipcRenderer.on('save-canvas', (event, arg) => {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', 'Open an image first!');
+    dialog.showErrorBox('Failure', '请先打开图像');
     return;
   }
 
