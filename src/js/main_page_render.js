@@ -305,14 +305,21 @@ function save(fileFullPath) {
       dialog.showErrorBox('Failure', 'Filed to save file!');
     }
   });
-  showMaskImage();
-  var maskFileFullPath = fileFullPath + '.mask';
-  saveCanvas(maskFileFullPath, () => {
-    dialog.showMessageBox({
-      message: 'Lable and mask files are saved! 🎉🎉🎉'
+  var labelNames = new Set([]);
+  for (var index in g_labels) {
+    labelNames.add(g_labels[index].label);
+  }
+  for (let labelName of labelNames) {
+    showMaskImage(labelName);
+    var maskFileFullPath = fileFullPath + '_' + labelName + '.mask';
+    saveCanvas(maskFileFullPath, () => {
+      console.log("Saved file " + maskFileFullPath);
     });
+    showCurrentImage();
+  }
+  dialog.showMessageBox({
+    message: '标注和蒙版文件保存成功! 🎉🎉🎉'
   });
-  showCurrentImage();
 }
 
 // Credits to https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
@@ -373,18 +380,28 @@ function showOriginalImage() {
   g_showingMask = false;
 }
 
-function getMaskImage() {
+function getMaskImage(labelName=null) {
   var maskImage = ctx.getImageData(0, 0, img.width, img.height);
   var x, y;
   for (y=0; y<img.height; y++) {
     for (x=0; x<img.width; x++) {
       var pos = y*4*img.width + x*4;
       var val = 255;
-      for (var index in g_labels) {
-        var label = g_labels[index];
-        if (label.mask[y*img.width+x] > 0) {
-          val = 0;
-          break;
+      if (labelName === null) {
+        for (var index in g_labels) {
+          var label = g_labels[index];
+          if (label.mask[y*img.width+x] > 0) {
+            val = 0;
+            break;
+          }
+        }
+      } else {
+        for (var index in g_labels) {
+          var label = g_labels[index];
+          if (label.label === labelName && label.mask[y*img.width+x] > 0) {
+            val = 0;
+            break;
+          }
         }
       }
       maskImage.data[pos] = val;
@@ -395,10 +412,10 @@ function getMaskImage() {
   return maskImage;
 }
 
-function showMaskImage() {
+function showMaskImage(labelName=null) {
   // Save current image first
   g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
-  ctx.putImageData(getMaskImage(), 0, 0);
+  ctx.putImageData(getMaskImage(labelName), 0, 0);
   g_showingMask = true;
 }
 
@@ -485,7 +502,7 @@ ipcRenderer.on('new-label', (event, arg) => {
   }
   prompt({
     title: 'Input',
-    label: 'Label name:',
+    label: '标注名称:',
     type: 'input'
   })
   .then(r => {
