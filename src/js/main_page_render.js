@@ -179,6 +179,18 @@ canvas.onmouseup = function(e) {
   }
 }
 
+document.addEventListener("keydown", function(e) {
+  switch(e.key) {
+    case "Escape":
+      if (g_isCropping) {
+        delete g_rois[g_isCropping];
+        g_isCropping = undefined;
+        canvas.style.cursor = 'default';
+      }
+      break;
+  }
+});
+
 var img = new Image();
 img.onload = function() {
     canvas.width = img.width;
