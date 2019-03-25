@@ -11,6 +11,10 @@ function onCreateROI(menuItem, browserWindow, event) {
   browserWindow.webContents.send('create-roi');
 }
 
+function onCreateLinkedROI(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('create-linked-roi');
+}
+
 function onDeleteROI(menuItem, browserWindow, event) {
   browserWindow.webContents.send('delete-roi');
 }
@@ -60,6 +64,10 @@ function buildFileSubMenu(lang) {
     {
       label: language(lang).CreateROI,
       click: onCreateROI
+    },
+    {
+      label: language(lang).CreateLinkedROI,
+      click: onCreateLinkedROI
     },
     {
       label: language(lang).DeleteROI,

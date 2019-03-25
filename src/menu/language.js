@@ -1,6 +1,7 @@
 var ENG = {
     OpenImage: 'Open image',
     CreateROI: 'Create ROI',
+    CreateLinkedROI: 'Create linked ROI',
     DeleteROI: 'Delete ROI',
     NewLabel: 'New label',
     RemoveLabel: 'Remove label',
@@ -13,6 +14,7 @@ var ENG = {
 var CHI = {
     OpenImage: '打开图像',
     CreateROI: '新建标注区',
+    CreateLinkedROI: '新建关联标注区',
     DeleteROI: '删除标注区',
     NewLabel: '新建标注',
     RemoveLabel: '删除标注',

@@ -21,6 +21,7 @@ var g_leftMousePressed = false;
 var g_isLabelling = false;
 var g_labels = [];
 var g_isCropping = undefined;
+var g_isLinkingROI = undefined;
 var g_rois = {};
 
 function resetAll() {
@@ -32,6 +33,7 @@ function resetAll() {
   g_isLabelling = false;
   g_labels = [];
   g_isCropping = undefined;
+  g_isLinkingROI = undefined;
   g_rois = {};
 }
 
@@ -133,8 +135,8 @@ canvas.onmousedown = function(e) {
 
     // Crop:
     if (g_isCropping) {
-      g_rois[g_isCropping].push(p);
-      g_rois[g_isCropping].push(p);
+      g_rois[g_isCropping].data.push(p);
+      g_rois[g_isCropping].data.push(p);
       drawROI(g_isCropping);
     }
 
@@ -152,13 +154,13 @@ canvas.onmousemove = function(e) {
     // Crop
     if (g_isCropping) {
       var p = new Point(e.offsetX, e.offsetY);
-      let origin = g_rois[g_isCropping][0];
+      let origin = g_rois[g_isCropping].data[0];
       if (e.shiftKey) {
         let l = Math.abs(p.y - origin.y);
         let sign = Math.sign(p.x - origin.x);
         p = new Point(origin.x + sign*l, p.y);
       }
-      g_rois[g_isCropping][1] = p;
+      g_rois[g_isCropping].data[1] = p;
       refresh(false);
     }
   }
@@ -170,11 +172,31 @@ canvas.onmouseup = function(e) {
     // Left button
     g_leftMousePressed = false;
     if (g_isCropping) {
-      g_rois[g_isCropping][1] = p;
+      let p1 = g_rois[g_isCropping].data[0];
+      g_rois[g_isCropping].data[0] = new Point(Math.min(p1.x, p.x), Math.min(p1.y, p.y));
+      let w = Math.abs(p1.y - p.y);
+      let h = Math.abs(p1.x - p.x);
+      g_rois[g_isCropping].data[1] = new Point(g_rois[g_isCropping].data[0].x + h, g_rois[g_isCropping].data[0].y + w)
       refresh(false);
       canvas.style.cursor = 'default';
       g_isCropping = undefined;
       g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+    }
+
+    if (g_isLinkingROI) {
+      var roi = g_isLinkingROI;
+      var linkedROI = g_rois[roi].link;
+      g_rois[roi].data[0] = p;
+      let w = Math.abs(g_rois[linkedROI].data[0].y - g_rois[linkedROI].data[1].y);
+      let h = Math.abs(g_rois[linkedROI].data[0].x - g_rois[linkedROI].data[1].x);
+      g_rois[roi].data[1] = new Point(p.x + h, p.y + w);
+      refresh(false);
+      canvas.style.cursor = 'default';
+      g_isLinkingROI = undefined;
+      g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+      dialog.showMessageBox({
+        message: '关联 ' + linkedROI + ' - ' + roi
+      });
     }
   }
 }
@@ -250,11 +272,23 @@ function randomBrightColor() {
 
 function createROI(regionName) {
   // Save current image data
-  g_rois[regionName] = [];
+  g_rois[regionName] = {data: []};
   refresh();
   g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
   canvas.style.cursor = 'crosshair';
   g_isCropping = regionName;
+}
+
+function createLinkedROI(linkedROI, roi) {
+  g_rois[roi] = {data: [], link: [linkedROI]};
+  if (!g_rois[linkedROI].link) {
+    g_rois[linkedROI].link = []
+  }
+  g_rois[linkedROI].link.add(roi);
+  refresh();
+  g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+  canvas.style.cursor = 'crosshair';
+  g_isLinkingROI = roi;
 }
 
 function deleteROI(regionName) {
@@ -329,7 +363,7 @@ function refresh(withOriginalImage=true) {
 }
 
 function drawROI(regionName) {
-  let roi = g_rois[regionName];
+  let roi = g_rois[regionName].data;
   if (roi.length != 2) return;
   let p1 = roi[0];
   let p2 = roi[1];
@@ -499,7 +533,7 @@ function getMaskImage(labelName=null, regionName=null) {
   var h = img.height;
   var topleft = new Point(0, 0);
   if (regionName != null) {
-    let region = g_rois[regionName];
+    let region = g_rois[regionName].data;
     w = Math.abs(region[0].x - region[1].x);
     h = Math.abs(region[0].y - region[1].y);
     topleft = new Point(Math.min(region[0].x, region[1].x), Math.min(region[0].y, region[1].y));
@@ -547,7 +581,7 @@ function showMaskImage(labelName=null, regionName=null) {
 }
 
 function saveOriginalImageWithROI(regionName, filePath, callback) {
-  let region = g_rois[regionName];
+  let region = g_rois[regionName].data;
   let w = Math.abs(region[0].x - region[1].x);
   let h = Math.abs(region[0].y - region[1].y);
   let topleft = new Point(Math.min(region[0].x, region[1].x), Math.min(region[0].y, region[1].y));
@@ -579,7 +613,7 @@ function saveMaskImage(filePath, callback, labelName=null, regionName=null) {
   var w = img.width;
   var h = img.height;
   if (regionName != null) {
-    let region = g_rois[regionName];
+    let region = g_rois[regionName].data;
     w = Math.abs(region[0].x - region[1].x);
     h = Math.abs(region[0].y - region[1].y);
   }
@@ -660,6 +694,38 @@ ipcRenderer.on('create-roi', (event, arg) => {
   .then(r => {
     if (r == null || r.length == 0) return;
     createROI(r);
+  })
+  .catch(e => {
+    //
+  });
+});
+
+ipcRenderer.on('create-linked-roi', (event, arg) => {
+  if (!commonPreconditions()) return;
+  let options = {}
+  for (var regionName in g_rois) {
+    options[regionName] = regionName;
+  }
+  prompt({
+    title: 'Select',
+    label: '要关联的标注区名称:',
+    type: 'select',
+    selectOptions: options
+  })
+  .then(linkedROI => {
+    if (linkedROI == null || linkedROI.length == 0) return;
+    prompt({
+      title: 'Input',
+      label: '标注区名称:',
+      type: 'input'
+    })
+    .then(roi => {
+      if (roi == null || roi.length == 0) return;
+      createLinkedROI(linkedROI, roi);
+    })
+    .catch(e => {
+      //
+    });
   })
   .catch(e => {
     //
