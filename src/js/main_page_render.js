@@ -248,13 +248,18 @@ function randomBrightColor() {
   }
 }
 
-function crop(regionName) {
+function createROI(regionName) {
   // Save current image data
   g_rois[regionName] = [];
   refresh();
   g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
   canvas.style.cursor = 'crosshair';
   g_isCropping = regionName;
+}
+
+function deleteROI(regionName) {
+  delete g_rois[regionName];
+  refresh();
 }
 
 function removeLabel(labelName) {
@@ -394,39 +399,40 @@ function save(fileFullPath) {
       dialog.showErrorBox('Failure', 'Filed to save file!');
     }
     console.log("Saved label file " + labelFileFullPath);
-    var labelNames = new Set([]);
-    for (var index in g_labels) {
-      labelNames.add(g_labels[index].label);
-    }
-    var regionNames = new Set([]);
-    for (var regionName in g_rois) {
-      regionNames.add(regionName);
-    }
-    if (regionNames.size > 0) {
-      for (let regionName of regionNames) {      
-        var regionalImageFileFullPath = fileFullPath + '_' + regionName;
-        saveOriginalImageWithROI(regionName, regionalImageFileFullPath, () => {
-          console.log("Saved regional image " + regionalImageFileFullPath);
-        });
-        for (let labelName of labelNames) {
-          var maskFileFullPath = fileFullPath + '_' + regionName + '_' + labelName + '.mask';
-          saveMaskImage(maskFileFullPath, () => {
-            console.log("Saved regional mask image " + maskFileFullPath);
-          }, labelName, regionName);
-        }
-      }
-    } else {
+  });
+  
+  var labelNames = new Set([]);
+  for (var index in g_labels) {
+    labelNames.add(g_labels[index].label);
+  }
+  var regionNames = new Set([]);
+  for (var regionName in g_rois) {
+    regionNames.add(regionName);
+  }
+  if (regionNames.size > 0) {
+    for (let regionName of regionNames) {      
+      var regionalImageFileFullPath = fileFullPath + '_' + regionName;
+      saveOriginalImageWithROI(regionName, regionalImageFileFullPath, () => {
+        console.log("Saved regional image " + regionalImageFileFullPath);
+      });
       for (let labelName of labelNames) {
-        var maskFileFullPath = fileFullPath + '_' + labelName + '.mask';
+        var maskFileFullPath = fileFullPath + '_' + regionName + '_' + labelName + '.mask';
         saveMaskImage(maskFileFullPath, () => {
-          console.log("Saved file " + maskFileFullPath);
-        }, labelName);
+          console.log("Saved regional mask image " + maskFileFullPath);
+        }, labelName, regionName);
       }
     }
-    refresh();
-    dialog.showMessageBox({
-      message: '标注和蒙版文件保存成功! 🎉🎉🎉'
-    });
+  } else {
+    for (let labelName of labelNames) {
+      var maskFileFullPath = fileFullPath + '_' + labelName + '.mask';
+      saveMaskImage(maskFileFullPath, () => {
+        console.log("Saved file " + maskFileFullPath);
+      }, labelName);
+    }
+  }
+  refresh();
+  dialog.showMessageBox({
+    message: '标注和蒙版文件保存成功! 🎉🎉🎉'
   });
 }
 
@@ -644,7 +650,7 @@ ipcRenderer.on('open-image', (event, arg) => {
   });
 });
 
-ipcRenderer.on('crop-image', (event, arg) => {
+ipcRenderer.on('create-roi', (event, arg) => {
   if (!commonPreconditions()) return;
   prompt({
     title: 'Input',
@@ -653,7 +659,23 @@ ipcRenderer.on('crop-image', (event, arg) => {
   })
   .then(r => {
     if (r == null || r.length == 0) return;
-    crop(r);
+    createROI(r);
+  })
+  .catch(e => {
+    //
+  });
+});
+
+ipcRenderer.on('delete-roi', (event, arg) => {
+  if (!commonPreconditions()) return;
+  prompt({
+    title: 'Input',
+    label: '标注区名称:',
+    type: 'input'
+  })
+  .then(r => {
+    if (r == null || r.length == 0) return;
+    deleteROI(r);
   })
   .catch(e => {
     //

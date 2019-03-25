@@ -7,8 +7,12 @@ function onOpen(menuItem, browserWindow, event) {
   browserWindow.webContents.send('open-image');
 }
 
-function onCrop(menuItem, browserWindow, event) {
-  browserWindow.webContents.send('crop-image');
+function onCreateROI(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('create-roi');
+}
+
+function onDeleteROI(menuItem, browserWindow, event) {
+  browserWindow.webContents.send('delete-roi');
 }
 
 function onNewLabel(menuItem, browserWindow, event) { 
@@ -54,8 +58,12 @@ function buildFileSubMenu(lang) {
       type: 'separator'
     },
     {
-      label: language(lang).CropImage,
-      click: onCrop
+      label: language(lang).CreateROI,
+      click: onCreateROI
+    },
+    {
+      label: language(lang).DeleteROI,
+      click: onDeleteROI
     },
     {
       type: 'separator'
