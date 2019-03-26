@@ -2,6 +2,8 @@ const { ipcRenderer } = require('electron');
 const { dialog } = require('electron').remote;
 const prompt = require('electron-prompt');
 const fs = require('fs');
+const path = require('path');
+const nativeImage = require('electron').nativeImage;
 
 const mask = require('./mask.js')
 
@@ -11,6 +13,8 @@ class Point {
     this.y = y;
   }
 }
+
+var img = new Image();
 
 // Keep a record of current working image path
 var g_imgPath;
@@ -37,6 +41,13 @@ var g_isLinkingROI = undefined;
 }
 */
 var g_rois = {};
+/*
+{
+  name: str,
+  from: Point
+}
+*/
+var g_movingROI = {};
 
 function resetAll() {
   g_imgPath = undefined;
@@ -49,6 +60,7 @@ function resetAll() {
   g_isCropping = undefined;
   g_isLinkingROI = undefined;
   g_rois = {};
+  g_movingROI = {};
 }
 
 // ----- Following method assumes there's a label and operates on latest label
@@ -200,15 +212,14 @@ canvas.onmousedown = function(e) {
       }
       drawTo(p);
     }
-
     // Crop:
-    if (g_isCropping) {
+    else if (g_isCropping) {
       g_rois[g_isCropping].data.push(p);
       g_rois[g_isCropping].data.push(p);
       drawROI(g_isCropping);
     }
 
-    if (g_isLinkingROI) {
+    else if (g_isLinkingROI) {
       var roi = g_isLinkingROI;
       var linkedROI = g_rois[roi].link;
       g_rois[roi].data[0] = p;
@@ -224,12 +235,23 @@ canvas.onmousedown = function(e) {
       });
     }
 
+    // Move ROI
+    else {
+      let region = isInROI(p);
+      if (region) {
+        console.log(`Moving ROI ${region}`);
+        g_movingROI = {name: region, from: p};
+      }
+    }
+
     g_leftMousePressed = true;
   }
 }
 
 canvas.onmousemove = function(e) {
   if (g_leftMousePressed) {
+    var p = new Point(e.offsetX, e.offsetY);
+
     // Lable
     if (g_isLabelling) {
       drawTo(new Point(e.offsetX, e.offsetY));
@@ -237,7 +259,6 @@ canvas.onmousemove = function(e) {
 
     // Crop
     if (g_isCropping) {
-      var p = new Point(e.offsetX, e.offsetY);
       let origin = g_rois[g_isCropping].data[0];
       if (e.shiftKey) {
         let l = Math.abs(p.y - origin.y);
@@ -246,6 +267,18 @@ canvas.onmousemove = function(e) {
       }
       g_rois[g_isCropping].data[1] = p;
       refresh(false);
+    }
+
+    // Move ROI
+    if (Object.keys(g_movingROI).length > 0) {
+      let f = g_movingROI.from;
+      let delta = [p.x - f.x, p.y - f.y];
+      g_rois[g_movingROI.name].data[0].x += delta[0];
+      g_rois[g_movingROI.name].data[0].y += delta[1];
+      g_rois[g_movingROI.name].data[1].x += delta[0];
+      g_rois[g_movingROI.name].data[1].y += delta[1];
+      g_movingROI.from = p;
+      refresh();
     }
   }
 }
@@ -266,6 +299,15 @@ canvas.onmouseup = function(e) {
       g_isCropping = undefined;
       g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
     }
+    if (Object.keys(g_movingROI).length > 0) {
+      let f = g_movingROI.from;
+      let delta = [p.x - f.x, p.y - f.y];
+      g_rois[g_movingROI.name].data[0].x += delta[0];
+      g_rois[g_movingROI.name].data[0].y += delta[1];
+      g_rois[g_movingROI.name].data[1].x += delta[0];
+      g_rois[g_movingROI.name].data[1].y += delta[1];
+      g_movingROI = {};
+    }
   }
 }
 
@@ -281,7 +323,15 @@ document.addEventListener("keydown", function(e) {
   }
 });
 
-var img = new Image();
+function isInROI(point) {
+  for (var regionName in g_rois) {
+    let p1 = g_rois[regionName].data[0];
+    let p2 = g_rois[regionName].data[1];
+    if (point.x >= p1.x && point.x <= p2.x && point.y >= p1.y && point.y <= p2.y) return regionName;
+  }
+  return null;
+}
+
 img.onload = function() {
     canvas.width = img.width;
     canvas.height = img.height;
@@ -348,6 +398,10 @@ function createROI(regionName) {
 }
 
 function createLinkedROI(sourceROI, roi) {
+  if (roi in g_rois) {
+    dialog.showErrorBox('❌', '标注区已存在，无法关联');
+    return;
+  }
   console.log(`Creating linked ROI: ${sourceROI} - ${roi}`);
   g_rois[roi] = {data: [], link: [sourceROI]};
   if (!g_rois[sourceROI].link) {
@@ -387,12 +441,12 @@ function removeLabel(labelName) {
 function loadLabel(filePath) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      dialog.showErrorBox('Failure', 'Failed to load label file!');
+      dialog.showErrorBox('❌', '无法载入标注文件');
     }
     try {
       var loaded = JSON.parse(data);
     } catch(e) {
-      dialog.showErrorBox('Failure', 'Failed to load label file!');
+      dialog.showErrorBox('❌', '无法载入标注文件');
       return;
     }
     g_labels = []
@@ -422,11 +476,11 @@ function loadLabel(filePath) {
 function refresh(withOriginalImage=true) {
   if (withOriginalImage) {
     showOriginalImage();
+    for (var index in g_labels) {
+      drawLabel(index);
+    }
   } else {
     showCurrentImage();
-  }
-  for (var index in g_labels) {
-    drawLabel(index);
   }
   drawROIs();
 }
@@ -499,7 +553,7 @@ function save(fileFullPath) {
   var content = constructLableFileContent();
   fs.writeFile(labelFileFullPath, content, 'utf8', err => {
     if (err) {
-      dialog.showErrorBox('Failure', 'Filed to save file!');
+      dialog.showErrorBox('❌', '无法保存文件');
     }
     console.log("Saved label file " + labelFileFullPath);
   });
@@ -703,7 +757,7 @@ function saveCanvas(filePath, callback, canvasToSave=canvas) {
   var buf = new Buffer(data, 'base64');
   fs.writeFile(filePath + '.png', buf, err => {
     if (err) {
-        dialog.showErrorBox('Failure', 'Filed to save file!');
+        dialog.showErrorBox('❌', '无法保存文件');
     } else {
       callback();
     }
@@ -731,7 +785,7 @@ document.addEventListener('dragover', e => {
 function commonPreconditions() {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', '请先打开图像');
+    dialog.showErrorBox('❌', '请先打开图像');
     return false;
   }
   // Complete current label if is still labelling
@@ -830,7 +884,7 @@ ipcRenderer.on('save', (event, arg) => {
 ipcRenderer.on('load-label', (event, arg) => {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', '请先打开图像');
+    dialog.showErrorBox('❌', '请先打开图像');
     return;
   }
   dialog.showOpenDialog(fileNames => {        
@@ -897,7 +951,7 @@ ipcRenderer.on('toggle-masks', (event, arg) => {
 ipcRenderer.on('save-canvas', (event, arg) => {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('Failure', '请先打开图像');
+    dialog.showMessageBox({title: '❌', message: '请先打开图像'});
     return;
   }
 
