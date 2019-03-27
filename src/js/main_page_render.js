@@ -2,8 +2,6 @@ const { ipcRenderer } = require('electron');
 const { dialog } = require('electron').remote;
 const prompt = require('electron-prompt');
 const fs = require('fs');
-const path = require('path');
-const nativeImage = require('electron').nativeImage;
 
 const mask = require('./mask.js')
 
@@ -33,6 +31,7 @@ var g_isLabelling = false;
 */
 var g_labels = [];
 var g_isCropping = undefined;
+var g_isCroppingWithSize = undefined;
 var g_isLinkingROI = undefined;
 /*
 {
@@ -58,6 +57,7 @@ function resetAll() {
   g_isLabelling = false;
   g_labels = [];
   g_isCropping = undefined;
+  g_isCroppingWithSize = undefined;
   g_isLinkingROI = undefined;
   g_rois = {};
   g_movingROI = {};
@@ -217,6 +217,16 @@ canvas.onmousedown = function(e) {
       g_rois[g_isCropping].data.push(p);
       g_rois[g_isCropping].data.push(p);
       drawROI(g_isCropping);
+    }
+
+    // Crop with size
+    else if (g_isCroppingWithSize) {
+      let regionName = g_isCroppingWithSize[0];
+      let size = g_isCroppingWithSize[1];
+      g_rois[regionName].data.push(p);
+      g_rois[regionName].data.push(new Point(p.x + size, p.y + size));
+      drawROI(regionName);
+      g_isCroppingWithSize = undefined;
     }
 
     else if (g_isLinkingROI) {
@@ -395,6 +405,13 @@ function createROI(regionName) {
   g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
   canvas.style.cursor = 'crosshair';
   g_isCropping = regionName;
+}
+
+function createROIWithSize(regionName, sideLen) {
+  g_rois[regionName] = {data: []};
+  refresh();
+  canvas.style.cursor = 'crosshair';
+  g_isCroppingWithSize = [regionName, sideLen];
 }
 
 function createLinkedROI(sourceROI, roi) {
@@ -816,7 +833,30 @@ ipcRenderer.on('create-roi', (event, arg) => {
   })
   .then(r => {
     if (r == null || r.length == 0) return;
-    createROI(r);
+      prompt({
+        title: 'Select',
+        label: '选择类型:',
+        type: 'select',
+        selectOptions: {
+          'Draw': '绘制矩形',
+          'Input': '输入边长'
+        }
+      }).then(type => {
+        if (type === 'Draw') {
+          createROI(r);
+        } else {
+          prompt({
+            title: 'Input',
+            label: '边长像素:',
+            type: 'input'
+          }).then(sideLen => {
+            createROIWithSize(r, parseInt(sideLen));
+          })
+        }        
+      })
+      .catch(e => {
+        //
+      });
   })
   .catch(e => {
     //
