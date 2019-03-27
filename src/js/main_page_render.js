@@ -30,7 +30,11 @@ var g_isLabelling = false;
 }
 */
 var g_labels = [];
+/* RegionName */
 var g_isCropping = undefined;
+/*
+[region, size]
+*/
 var g_isCroppingWithSize = undefined;
 var g_isLinkingROI = undefined;
 /*
@@ -47,6 +51,12 @@ var g_rois = {};
 }
 */
 var g_movingROI = {};
+/*
+{
+  name: region
+}
+*/
+var g_selectedROI = undefined;
 
 function resetAll() {
   g_imgPath = undefined;
@@ -61,6 +71,7 @@ function resetAll() {
   g_isLinkingROI = undefined;
   g_rois = {};
   g_movingROI = {};
+  g_selectedROI = undefined;
 }
 
 // ----- Following method assumes there's a label and operates on latest label
@@ -249,8 +260,10 @@ canvas.onmousedown = function(e) {
     else {
       let region = isInROI(p);
       if (region) {
-        console.log(`Moving ROI ${region}`);
+        console.log(`Select ROI ${region}`);
         g_movingROI = {name: region, from: p};
+        g_selectedROI = {name: region};
+        refresh();
       }
     }
 
@@ -329,6 +342,38 @@ document.addEventListener("keydown", function(e) {
         g_isCropping = undefined;
         canvas.style.cursor = 'default';
       }
+      if (g_selectedROI) {
+        g_selectedROI = undefined;
+        refresh();
+      }
+      break;
+    case "ArrowLeft":
+      if (g_selectedROI) {
+        g_rois[g_selectedROI.name].data[0].x -= 1
+        g_rois[g_selectedROI.name].data[1].x -= 1
+      }
+      refresh(true);
+      break;
+    case "ArrowRight":
+      if (g_selectedROI) {
+        g_rois[g_selectedROI.name].data[0].x += 1
+        g_rois[g_selectedROI.name].data[1].x += 1
+      }
+      refresh(true);
+      break;
+    case "ArrowUp":
+      if (g_selectedROI) {
+        g_rois[g_selectedROI.name].data[0].y -= 1
+        g_rois[g_selectedROI.name].data[1].y -= 1
+      }
+      refresh(true);
+      break;
+    case "ArrowDown":
+      if (g_selectedROI) {
+        g_rois[g_selectedROI.name].data[0].y += 1
+        g_rois[g_selectedROI.name].data[1].y += 1
+      }
+      refresh(true);
       break;
   }
 });
@@ -510,11 +555,20 @@ function drawROI(regionName) {
   let tl = new Point(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y))
   let w = Math.abs(p1.x - p2.x);
   let h = Math.abs(p1.y - p2.y);
-  ctx.strokeStyle = '#FFFFFF';
+  if (g_selectedROI && g_selectedROI.name === regionName) {
+    ctx.strokeStyle = 'red';
+    ctx.fillStyle = 'red';
+    ctx.lineWidth = 3;
+  } else {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#FFFFFF';
+  }
   ctx.strokeRect(tl.x, tl.y, w, h);
   ctx.font = "15px Verdana";
-  ctx.fillStyle = '#FFFFFF';
   ctx.fillText(regionName, tl.x, tl.y - 10);
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#FFFFFF';
 }
 
 function drawROIs() {
