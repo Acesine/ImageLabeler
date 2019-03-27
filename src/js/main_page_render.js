@@ -10,6 +10,9 @@ class Point {
     this.x = x;
     this.y = y;
   }
+  toString() {
+    return '(' + this.x + ', ' + this.y + ')';
+  }
 }
 
 var img = new Image();
@@ -478,6 +481,15 @@ function createLinkedROI(sourceROI, roi) {
 
 function deleteROI(regionName) {
   delete g_rois[regionName];
+  console.log(`Removed ROI ${regionName}`);
+  // Unlink
+  for (var r in g_rois) {
+    if (g_rois[r].link && g_rois[r].link.indexOf(regionName) != -1) {
+      let i = g_rois[r].link.indexOf(regionName);
+      g_rois[r].link.splice(i, 1);
+      console.log(`Unlinked ${regionName} from ${r}`);
+    }
+  }
   refresh();
 }
 
