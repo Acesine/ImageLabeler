@@ -385,9 +385,9 @@ document.addEventListener("keydown", function(e) {
       if (g_selectedROI) {
         if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
-          g_rois[g_selectedROI.name].data[1].x += 1
+          g_rois[g_selectedROI.name].data[0].x += 1
         }
-        g_rois[g_selectedROI.name].data[0].x += 1
+        g_rois[g_selectedROI.name].data[1].x += 1        
       }
       refresh(true);
       break;
@@ -405,9 +405,9 @@ document.addEventListener("keydown", function(e) {
       if (g_selectedROI) {
         if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
-          g_rois[g_selectedROI.name].data[1].y += 1
+          g_rois[g_selectedROI.name].data[0].y += 1          
         }
-        g_rois[g_selectedROI.name].data[0].y += 1
+        g_rois[g_selectedROI.name].data[1].y += 1
       }
       refresh(true);
       break;
