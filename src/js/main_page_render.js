@@ -266,8 +266,10 @@ canvas.onmousedown = function(e) {
         console.log(`Select ROI ${region}`);
         g_movingROI = {name: region, from: p};
         g_selectedROI = {name: region};
-        refresh();
+      } else {
+        g_selectedROI = undefined;
       }
+      refresh();
     }
 
     g_leftMousePressed = true;
