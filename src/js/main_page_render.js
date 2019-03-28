@@ -354,29 +354,37 @@ document.addEventListener("keydown", function(e) {
       break;
     case "ArrowLeft":
       if (g_selectedROI) {
-        g_rois[g_selectedROI.name].data[0].x -= 1
+        if (!e.shiftKey) {
+          g_rois[g_selectedROI.name].data[0].x -= 1
+        }
         g_rois[g_selectedROI.name].data[1].x -= 1
       }
       refresh(true);
       break;
     case "ArrowRight":
       if (g_selectedROI) {
+        if (!e.shiftKey) {
+          g_rois[g_selectedROI.name].data[1].x += 1
+        }
         g_rois[g_selectedROI.name].data[0].x += 1
-        g_rois[g_selectedROI.name].data[1].x += 1
       }
       refresh(true);
       break;
     case "ArrowUp":
       if (g_selectedROI) {
-        g_rois[g_selectedROI.name].data[0].y -= 1
+        if (!e.shiftKey) {
+          g_rois[g_selectedROI.name].data[0].y -= 1
+        }
         g_rois[g_selectedROI.name].data[1].y -= 1
       }
       refresh(true);
       break;
     case "ArrowDown":
       if (g_selectedROI) {
+        if (!e.shiftKey) {
+          g_rois[g_selectedROI.name].data[1].y += 1
+        }
         g_rois[g_selectedROI.name].data[0].y += 1
-        g_rois[g_selectedROI.name].data[1].y += 1
       }
       refresh(true);
       break;
