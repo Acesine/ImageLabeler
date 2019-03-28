@@ -354,6 +354,7 @@ document.addEventListener("keydown", function(e) {
       break;
     case "ArrowLeft":
       if (g_selectedROI) {
+        if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
           g_rois[g_selectedROI.name].data[0].x -= 1
         }
@@ -363,6 +364,7 @@ document.addEventListener("keydown", function(e) {
       break;
     case "ArrowRight":
       if (g_selectedROI) {
+        if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
           g_rois[g_selectedROI.name].data[1].x += 1
         }
@@ -372,6 +374,7 @@ document.addEventListener("keydown", function(e) {
       break;
     case "ArrowUp":
       if (g_selectedROI) {
+        if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
           g_rois[g_selectedROI.name].data[0].y -= 1
         }
@@ -381,6 +384,7 @@ document.addEventListener("keydown", function(e) {
       break;
     case "ArrowDown":
       if (g_selectedROI) {
+        if (e.shiftKey && !isSizeChangable(g_selectedROI.name)) return;
         if (!e.shiftKey) {
           g_rois[g_selectedROI.name].data[1].y += 1
         }
@@ -390,6 +394,16 @@ document.addEventListener("keydown", function(e) {
       break;
   }
 });
+
+function isSizeChangable(regionName) {
+  if (g_rois[regionName].link && g_rois[regionName].link.length > 0) {
+    dialog.showMessageBox({
+      message: '无法改变关联标注区大小'
+    });
+    return false;
+  }
+  return true;
+}
 
 function isInROI(point) {
   for (var regionName in g_rois) {
