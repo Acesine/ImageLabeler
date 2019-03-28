@@ -5,6 +5,10 @@ const fs = require('fs');
 
 const mask = require('./mask.js')
 
+const TITLE = 'ImageLabeler';
+
+document.title = TITLE;
+
 class Point {
   constructor(x, y) {
     this.x = x;
@@ -270,8 +274,11 @@ canvas.onmousedown = function(e) {
         console.log(`Select ROI ${region}`);
         g_movingROI = {name: region, from: p};
         g_selectedROI = {name: region};
+        document.title = (g_rois[region].data[1].x - g_rois[region].data[0].x) + ' x ' + 
+          (g_rois[region].data[1].y - g_rois[region].data[0].y);
       } else {
         g_selectedROI = undefined;
+        document.title = TITLE;
       }
       refresh();
     }
