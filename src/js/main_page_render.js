@@ -23,7 +23,7 @@ var g_originalImageData;
 var g_currentImageData;
 var g_showingMask = false;
 var g_leftMousePressed = false;
-var g_isLabelling = false;
+var g_isLabelling = undefined;
 /* Label struct
 {
   label: labelName,
@@ -67,7 +67,7 @@ function resetAll() {
   g_currentImageData = undefined;
   g_showingMask = false;
   g_leftMousePressed = false;
-  g_isLabelling = false;
+  g_isLabelling = undefined;
   g_labels = [];
   g_isCropping = undefined;
   g_isCroppingWithSize = undefined;
@@ -116,13 +116,16 @@ function getLableName(labelIndex=g_labels.length-1) {
 // Draw
 var canvas = document.getElementById("imgCanvas");
 var ctx = canvas.getContext("2d");
-var helperRadius = 10;
+var helperRadius = 7;
 
-function markFirstPoint(p, labelIndex=g_labels.length-1) {
-  ctx.beginPath();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.arc(p.x, p.y, helperRadius, 0, 2*Math.PI);
-  ctx.stroke();
+function markFirstPoint(labelIndex=g_labels.length-1, highlight=undefined) {
+  let p = g_labels[labelIndex].points[0];
+  if (highlight) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, helperRadius, 0, 2*Math.PI);
+    ctx.fillStyle = highlight;
+    ctx.fill();
+  }
   ctx.fillStyle = '#FFFFFF';
   ctx.font = "15px Verdana";
   ctx.fillText(getLableName(labelIndex), p.x - 10, p.y - 10);
@@ -135,7 +138,7 @@ function withInCircle(c, p) {
 function drawTo(p) {
   if (getLastPoint() === undefined) {
     pushLabelPoint(p);
-    markFirstPoint(p);
+    markFirstPoint();
   }
   ctx.beginPath();
   ctx.strokeStyle = getCurrentLineColor();
@@ -154,7 +157,7 @@ function completeLabeling() {
   constructMask();
   blendImageAndMask();
   canvas.style.cursor = 'default';
-  g_isLabelling = false;
+  g_isLabelling = undefined;
 
   // Propogate to linked regions if exist
   let p = getFirstPoint();
@@ -209,6 +212,7 @@ function completeLabeling() {
       blendImageAndMask();
     }
   }
+  refresh();
 }
 
 canvas.onmousedown = function(e) {
@@ -277,14 +281,13 @@ canvas.onmousedown = function(e) {
 }
 
 canvas.onmousemove = function(e) {
-  if (g_leftMousePressed) {
-    var p = new Point(e.offsetX, e.offsetY);
+  let p = new Point(e.offsetX, e.offsetY);
 
+  if (g_leftMousePressed) {
     // Lable
     if (g_isLabelling) {
       drawTo(new Point(e.offsetX, e.offsetY));
     }
-
     // Crop
     if (g_isCropping) {
       let origin = g_rois[g_isCropping].data[0];
@@ -307,6 +310,15 @@ canvas.onmousemove = function(e) {
       g_rois[g_movingROI.name].data[1].y += delta[1];
       g_movingROI.from = p;
       refresh();
+    }
+  }
+  if (g_isLabelling) {
+    if (getLastPoint() !== undefined) {
+      if (withInCircle(getFirstPoint(), p)) {
+        markFirstPoint(g_labels.length-1, 'red');
+      } else {
+        markFirstPoint(g_labels.length-1, getCurrentLineColor());
+      }
     }
   }
 }
@@ -449,7 +461,7 @@ function newLabel(labelName) {
     mask: []
   });
   canvas.style.cursor = 'crosshair';
-  g_isLabelling = true;
+  g_isLabelling = labelName;
 }
 
 function randomBrightColor() {
@@ -556,7 +568,7 @@ function loadLabel(filePath) {
         points: [],
         mask: []
       });
-      g_isLabelling = true;
+      g_isLabelling = label;
       element.points.forEach(p => {
         drawTo(new Point(p[0], p[1]));
       });
@@ -567,7 +579,7 @@ function loadLabel(filePath) {
     });
     g_rois = loaded.rois? loaded.rois : {};
     drawROIs();
-    g_isLabelling = false;
+    g_isLabelling = undefined;
   });
 }
 
@@ -614,8 +626,7 @@ function drawROIs() {
 }
 
 function drawLabel(labelIndex) {
-  var first = g_labels[labelIndex].points[0];
-  markFirstPoint(first, labelIndex);
+  markFirstPoint(labelIndex);
   for (var index=1; index<g_labels[labelIndex].points.length; index++) {
     var curr = g_labels[labelIndex].points[index];
     var prev = g_labels[labelIndex].points[index-1];
