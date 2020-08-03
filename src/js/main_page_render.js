@@ -9,6 +9,11 @@ const TITLE = 'ImageLabeler';
 
 document.title = TITLE;
 
+//  ------> x
+//  |
+//  |
+//  v y
+
 class Point {
   constructor(x, y) {
     this.x = x;
@@ -18,6 +23,10 @@ class Point {
     return '(' + this.x + ', ' + this.y + ')';
   }
 }
+
+// Latest used ROI dimentions. Will be used for "Last" option when creating ROI
+// [Width, Height]
+var w_latest_used_roi_dimentions;
 
 var img = new Image();
 
@@ -244,10 +253,12 @@ canvas.onmousedown = function(e) {
     // Crop with size
     else if (g_isCroppingWithSize) {
       let regionName = g_isCroppingWithSize[0];
-      let size = g_isCroppingWithSize[1];
+      let w_size = g_isCroppingWithSize[1];
+      let h_size = g_isCroppingWithSize[2];
       g_rois[regionName].data.push(p);
-      g_rois[regionName].data.push(new Point(p.x + size, p.y + size));
+      g_rois[regionName].data.push(new Point(p.x + w_size, p.y + h_size));
       drawROI(regionName);
+      w_latest_used_roi_dimentions = [w_size, h_size];
       g_isCroppingWithSize = undefined;
     }
 
@@ -338,11 +349,12 @@ canvas.onmouseup = function(e) {
     if (g_isCropping) {
       let p1 = g_rois[g_isCropping].data[0];
       g_rois[g_isCropping].data[0] = new Point(Math.min(p1.x, p.x), Math.min(p1.y, p.y));
-      let w = Math.abs(p1.y - p.y);
-      let h = Math.abs(p1.x - p.x);
-      g_rois[g_isCropping].data[1] = new Point(g_rois[g_isCropping].data[0].x + h, g_rois[g_isCropping].data[0].y + w)
+      let w = Math.abs(p1.x - p.x);
+      let h = Math.abs(p1.y - p.y);
+      g_rois[g_isCropping].data[1] = new Point(g_rois[g_isCropping].data[0].x + w, g_rois[g_isCropping].data[0].y + h)
       refresh(false);
       canvas.style.cursor = 'default';
+      w_latest_used_roi_dimentions = [w, h];
       g_isCropping = undefined;
       g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
     }
@@ -498,11 +510,11 @@ function createROI(regionName) {
   g_isCropping = regionName;
 }
 
-function createROIWithSize(regionName, sideLen) {
+function createROIWithSize(regionName, width, height) {
   g_rois[regionName] = {data: []};
   refresh();
   canvas.style.cursor = 'crosshair';
-  g_isCroppingWithSize = [regionName, sideLen];
+  g_isCroppingWithSize = [regionName, width, height];
 }
 
 function createLinkedROI(sourceROI, roi) {
@@ -941,33 +953,48 @@ ipcRenderer.on('create-roi', (event, arg) => {
   })
   .then(r => {
     if (r == null || r.length == 0) return;
-      prompt({
-        title: 'Select',
-        label: '选择类型:',
-        type: 'select',
-        selectOptions: {
-          'Draw': '绘制矩形',
-          'Input': '输入边长'
+    var options = {
+      'Draw': '绘制矩形',
+      'Input': '输入边长',
+      'Last': '最近参数'
+    };
+    if (w_latest_used_roi_dimentions != null) {
+      options = {
+        'Last': '最近参数',
+        'Draw': '绘制矩形',
+        'Input': '输入边长'
+      }
+    }
+    prompt({
+      title: 'Select',
+      label: '选择类型:',
+      type: 'select',
+      selectOptions: options
+    }).then(type => {
+      if (type === 'Draw') {
+        createROI(r);
+      } else if (type == 'Input') {
+        prompt({
+          title: 'Input',
+          label: '边长像素:',
+          type: 'input'
+        }).then(sideLen => {
+          createROIWithSize(r, parseInt(sideLen), parseInt(sideLen));
+        })
+      } else if (type == 'Last') {
+        if (w_latest_used_roi_dimentions == null) {
+          dialog.showErrorBox('❌', '无法找到最近参数，请尝试其他选项');
+          return;
         }
-      }).then(type => {
-        if (type === 'Draw') {
-          createROI(r);
-        } else {
-          prompt({
-            title: 'Input',
-            label: '边长像素:',
-            type: 'input'
-          }).then(sideLen => {
-            createROIWithSize(r, parseInt(sideLen));
-          })
-        }        
-      })
-      .catch(e => {
-        //
-      });
+        createROIWithSize(r, w_latest_used_roi_dimentions[0], w_latest_used_roi_dimentions[1]);
+      }
+    })
+    .catch(e => {
+      console.log(e);
+    });
   })
   .catch(e => {
-    //
+    console.log(e);
   });
 });
 
