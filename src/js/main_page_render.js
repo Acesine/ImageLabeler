@@ -4,6 +4,8 @@ const prompt = require('electron-prompt');
 const fs = require('fs');
 
 const mask = require('./mask.js')
+const dialog_utils = require('./dialog_utils.js');
+const log_utils = require('./log_utils.js');
 
 const TITLE = 'ImageLabeler';
 
@@ -29,6 +31,19 @@ class Point {
 var w_latest_used_roi_dimentions;
 
 var img = new Image();
+
+// Image element callbacks
+img.onload = function() {
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+  g_originalImageData = ctx.getImageData(0, 0, img.width, img.height);
+  g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
+}
+
+img.onerror = function() {
+  dialog_utils.error('图像文件无法打开: ' + img.src);
+}
 
 // Keep a record of current working image path
 var g_imgPath;
@@ -273,9 +288,7 @@ canvas.onmousedown = function(e) {
       canvas.style.cursor = 'default';
       g_isLinkingROI = undefined;
       g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
-      dialog.showMessageBox({
-        message: '关联 ' + linkedROI + ' - ' + roi
-      });
+      dialog_utils.message('关联 ' + linkedROI + ' - ' + roi);
     }
 
     // Move ROI
@@ -428,9 +441,7 @@ document.addEventListener("keydown", function(e) {
 
 function isSizeChangable(regionName) {
   if (g_rois[regionName].link && g_rois[regionName].link.length > 0) {
-    dialog.showMessageBox({
-      message: '无法改变关联标注区大小'
-    });
+    dialog_utils.message('无法改变关联标注区大小');
     return false;
   }
   return true;
@@ -443,14 +454,6 @@ function isInROI(point) {
     if (point.x >= p1.x && point.x <= p2.x && point.y >= p1.y && point.y <= p2.y) return regionName;
   }
   return null;
-}
-
-img.onload = function() {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-    g_originalImageData = ctx.getImageData(0, 0, img.width, img.height);
-    g_currentImageData = ctx.getImageData(0, 0, img.width, img.height);
 }
 
 function openImage(filePath) {
@@ -519,7 +522,7 @@ function createROIWithSize(regionName, width, height) {
 
 function createLinkedROI(sourceROI, roi) {
   if (roi in g_rois) {
-    dialog.showErrorBox('❌', '标注区已存在，无法关联');
+    dialog_utils.error('标注区已存在，无法关联');
     return;
   }
   console.log(`Creating linked ROI: ${sourceROI} - ${roi}`);
@@ -570,12 +573,12 @@ function removeLabel(labelName) {
 function loadLabel(filePath) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      dialog.showErrorBox('❌', '无法载入标注文件');
+      dialog_utils.error('无法载入标注文件');
     }
     try {
       var loaded = JSON.parse(data);
     } catch(e) {
-      dialog.showErrorBox('❌', '无法载入标注文件');
+      dialog_utils.error('无法载入标注文件');
       return;
     }
     g_labels = []
@@ -690,9 +693,9 @@ function save(fileFullPath) {
   var content = constructLableFileContent();
   fs.writeFile(labelFileFullPath, content, 'utf8', err => {
     if (err) {
-      dialog.showErrorBox('❌', '无法保存文件');
+      dialog_utils.error('无法保存文件');
     }
-    console.log("Saved label file " + labelFileFullPath);
+    log_utils.debug("Saved label file " + labelFileFullPath);
   });
   
   var labelNames = new Set([]);
@@ -725,9 +728,7 @@ function save(fileFullPath) {
     }
   }
   refresh();
-  dialog.showMessageBox({
-    message: '标注和蒙版文件保存成功! 🎉🎉🎉'
-  });
+  dialog_utils.message('标注和蒙版文件保存成功! 🎉');
 }
 
 // Credits to https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
@@ -894,7 +895,7 @@ function saveCanvas(filePath, callback, canvasToSave=canvas) {
   var buf = new Buffer(data, 'base64');
   fs.writeFile(filePath + '.png', buf, err => {
     if (err) {
-        dialog.showErrorBox('❌', '无法保存文件');
+        dialog_utils.error('无法保存文件');
     } else {
       callback();
     }
@@ -918,11 +919,46 @@ document.addEventListener('dragover', e => {
   e.stopPropagation();
 });
 
+// callback: f(filePaths) -> void
+function openFileHelper(callback) {
+  return dialog.showOpenDialog(
+    {
+      properties: ['openFile']
+    }
+  ).then(result => {
+    if(result.filePaths === undefined || result.filePaths.length == 0) { 
+      return;
+    } else { 
+      callback(result.filePaths);
+    }
+  }).catch(err => {
+    log_utils.error(err);
+    dialog_utils.error('无法打开文件');
+  });
+}
+
+function saveFileHelper(callback) {
+  return dialog.showSaveDialog(
+    {
+      properties: ['createDirectory']
+    }
+  ).then(result => {
+    if(result.filePath === undefined || result.filePath.length == 0) { 
+      return;
+    } else { 
+      callback(result.filePath);
+    }
+  }).catch(err => {
+    log_utils.error(err);
+    dialog_utils.error('无法保存文件');
+  });;
+}
+
 // IPC ops
 function commonPreconditions() {
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('❌', '请先打开图像');
+    dialog_utils.error('请先打开图像');
     return false;
   }
   // Complete current label if is still labelling
@@ -934,17 +970,12 @@ function commonPreconditions() {
 }
 
 ipcRenderer.on('open-image', (event, arg) => {
-  dialog.showOpenDialog(fileNames => {        
-    // fileNames is an array that contains all the selected 
-    if(fileNames === undefined || fileNames.length == 0) { 
-      return;
-    } else { 
-      openImage(fileNames[0]);
-    } 
-  });
+  log_utils.debug('Opening image');
+  openFileHelper(filePaths => openImage(filePaths[0]));
 });
 
 ipcRenderer.on('create-roi', (event, arg) => {
+  log_utils.debug('Creating ROI');
   if (!commonPreconditions()) return;
   prompt({
     title: 'Input',
@@ -983,7 +1014,7 @@ ipcRenderer.on('create-roi', (event, arg) => {
         })
       } else if (type == 'Last') {
         if (w_latest_used_roi_dimentions == null) {
-          dialog.showErrorBox('❌', '无法找到最近参数，请尝试其他选项');
+          dialog_utils.error('无法找到最近参数，请尝试其他选项');
           return;
         }
         createROIWithSize(r, w_latest_used_roi_dimentions[0], w_latest_used_roi_dimentions[1]);
@@ -999,6 +1030,7 @@ ipcRenderer.on('create-roi', (event, arg) => {
 });
 
 ipcRenderer.on('create-linked-roi', (event, arg) => {
+  log_utils.debug('Creating linked ROI');
   if (!commonPreconditions()) return;
   let options = {}
   for (var regionName in g_rois) {
@@ -1031,6 +1063,7 @@ ipcRenderer.on('create-linked-roi', (event, arg) => {
 });
 
 ipcRenderer.on('delete-roi', (event, arg) => {
+  log_utils.debug('Deleting ROI');
   if (!commonPreconditions()) return;
   prompt({
     title: 'Input',
@@ -1047,34 +1080,27 @@ ipcRenderer.on('delete-roi', (event, arg) => {
 });
 
 ipcRenderer.on('save', (event, arg) => {
-  dialog.showSaveDialog(filename => {        
-    if(filename === undefined) { 
-      // 
-    } else { 
-      save(filename);
-    } 
-  });
+  log_utils.debug('Saving');
+  if (!commonPreconditions()) return;
+  saveFileHelper(filePath => save(filePath));
 });
 
 ipcRenderer.on('load-label', (event, arg) => {
+  log_utils.debug('Loading label');
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showErrorBox('❌', '请先打开图像');
+    dialog_utils.error('请先打开图像');
     return;
   }
-  dialog.showOpenDialog(fileNames => {        
-    // fileNames is an array that contains all the selected 
-    if(fileNames === undefined || fileNames.length == 0) {
-      return;
-    } else {
-      // refresh image
-      openImage(g_imgPath);
-      loadLabel(fileNames[0]);
-    } 
+  openFileHelper(filePaths => {
+    // refresh image
+    openImage(g_imgPath);
+    loadLabel(filePaths[0]);
   });
 });
 
 ipcRenderer.on('new-label', (event, arg) => {
+  log_utils.debug('New label');
   // Preconditions
   if (!commonPreconditions()) return;
   // Turn off cropping
@@ -1096,6 +1122,7 @@ ipcRenderer.on('new-label', (event, arg) => {
 });
 
 ipcRenderer.on('remove-label', (event, arg) => {
+  log_utils.debug('Removing label');
   // Preconditions
   if (!commonPreconditions()) return;
   prompt({
@@ -1113,6 +1140,7 @@ ipcRenderer.on('remove-label', (event, arg) => {
 });
 
 ipcRenderer.on('toggle-masks', (event, arg) => {
+  log_utils.debug('Toggle masks');
   // Preconditions
   if (!commonPreconditions()) return;
 
@@ -1124,17 +1152,16 @@ ipcRenderer.on('toggle-masks', (event, arg) => {
 });
 
 ipcRenderer.on('save-canvas', (event, arg) => {
+  log_utils.debug('Saving canvas');
   // Preconditions
   if (g_imgPath === undefined) {
-    dialog.showMessageBox({title: '❌', message: '请先打开图像'});
+    dialog_utils.error('请先打开图像');
     return;
   }
 
-  dialog.showSaveDialog(filePath => {        
-    if(filePath === undefined) { 
-      // 
-    } else { 
-      saveCanvas(filePath, () => {});
-    } 
+  saveFileHelper(
+    filePath => saveCanvas(filePath, () => {})
+  ).then(_ => {
+    dialog_utils.message('图像保存成功！🎉')
   });
 });

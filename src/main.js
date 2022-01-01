@@ -10,9 +10,14 @@ if (require('electron-squirrel-startup')) { // eslint-disable-line global-requir
 let mainWindow;
 
 const createWindow = () => {
+  app.allowRendererProcessReuse = true;
   mainWindow = new BrowserWindow({
+    webPreferences: {
+      nodeIntegration: true,
+      enableRemoteModule: true,
+    },
     width: 800,
-    height: 600
+    height: 600,
   });
   mainWindow.maximize();
 
